@@ -165,6 +165,7 @@ class SOLRMETNORepository:
         results = []
         # TODO
         # transform constraint['_dict'] into SOLR query syntax
+        #  - set paging from maxrecords and startposition
         # transform each doc result into pycsw dataset object
         # return the total hits (int, and list of dataset objects)
         return total, results
