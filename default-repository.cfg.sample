@@ -1,0 +1,4 @@
+[repository]
+database=None
+source=pycsw.plugins.repository.solr_metno.SOLRMETNORepository
+filter=https://solr.epinux.com/solr/mmd

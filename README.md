@@ -1,2 +1,2 @@
 # adc-pycsw
-Setup and deployment of PyCSW for the Arctic Data Centre (ADC) project
+Setup and deployment of pycsw for the Arctic Data Centre (ADC) project
