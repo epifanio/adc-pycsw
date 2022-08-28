@@ -37,6 +37,7 @@ import requests
 
 from pycsw.core import util
 from pycsw.core.etree import etree
+import os
 
 LOGGER = logging.getLogger(__name__)
 
@@ -55,6 +56,7 @@ class SOLRMETNORepository:
         self.label = 'MetNO/SOLR'
         self.local_ingest = True
         self.solr_select_url = '%s/select' % self.filter
+        self.dbtype = 'SOLR'
 
         # generate core queryables db and obj bindings
         self.queryables = {}
@@ -161,14 +163,39 @@ class SOLRMETNORepository:
         """
         Query records from underlying repository
         """
-
+        print('###################################################', 
+              '\n', 
+              constraint)
+        print(dir(constraint), type(constraint))
         results = []
+        # if constraint is none, return all the records
+        # otherwise catch the filter syntax and translate it
+        # 
+
+        params = {
+            'q': '*:*',
+            'q.op': 'OR',
+            'start': startposition,
+            'rows': maxrecords,
+        }
+        response = requests.get('%s/select' % self.filter, params=params).json()
+        # print(response)
+         
+        total = response['response']['numFound']
+        
+
+        for doc in response['response']['docs']:
+            results.append(self._doc2record(doc))
+
+        print(total)
+        
         # TODO
         # transform constraint['_dict'] into SOLR query syntax
         #  - set paging from maxrecords and startposition
         # transform each doc result into pycsw dataset object
         # return the total hits (int, and list of dataset objects)
-        return total, results
+        # print(constraint['_dict'])
+        return str(total), results
 
     def _doc2record(self, doc):
         """
@@ -187,7 +214,8 @@ class SOLRMETNORepository:
         record['keywords'] = ','.join(doc['keywords_keyword'])
 
         # FIXME: derive from enviroment variable
-        xslt = '/Users/tomkralidis/Dev/pycsw/pycsw/mmd-to-inspire.xsl'
+        xslt = '/home/epinux/mmd-to-inspire.xsl'
+        xslt = os.environ.get['MMD_TO_ISO']
 
         transform = etree.XSLT(etree.parse(xslt))
         xml_ = base64.b64decode(doc['mmd_xml_file'])
