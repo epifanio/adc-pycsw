@@ -56,7 +56,7 @@ source=pycsw.plugins.repository.solr_metno.SOLRMETNORepository
 filter=https://solr.domain.com/solr/mmd
 ```
 
-- from the pycdwdev environment export the ```MMD_TO_ISO``` environment variable, to the path for the xslt used to convert MMD records to ISO, e.g.:
+- from the `pycswdev` environment export the ```MMD_TO_ISO``` environment variable, to the path for the xslt used to convert MMD records to ISO, e.g.:
 
 ```export MMD_TO_ISO="mmd/xslt/mmd-to-inspire.xsl"```
 
