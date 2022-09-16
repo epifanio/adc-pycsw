@@ -3,20 +3,20 @@ Setup and deployment of pycsw for the Arctic Data Centre (ADC) project
 
 ## Installation 
 
-- clone pycsw
+- Clone pycsw
 
 ```git clone https://github.com/geopython/pycsw```
 
-- clone adc-pycsw (this repository)
+- Clone adc-pycsw (this repository)
 
 ```git clone https://github.com/epifanio/adc-pycsw```
 
-- copy the plugin files into the source code
+- Copy the plugin files into the `pycsw` source code
 
 ```cp adc-pycsw/blob/main/plugins/repository/solr_metno.py pycsw/pycsw/plugins/repository/```
 ```cp adc-pycsw/blob/main/plugins/repository/solr_helper.py pycsw/pycsw/plugins/repository/```
 
-- create a python environment (using conda for convenience)
+- Create a python environment (using conda for convenience)
 
 ```conda create -n pycswdev```
 
@@ -24,7 +24,7 @@ Setup and deployment of pycsw for the Arctic Data Centre (ADC) project
 
 ```conda activate pycswdev```
 
-- install pycsw and its dependencies
+- Install pycsw and its dependencies
 
 
 ```
