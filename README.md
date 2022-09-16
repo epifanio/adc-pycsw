@@ -23,7 +23,7 @@ cp adc-pycsw/plugins/repository/solr_helper.py pycsw/pycsw/plugins/repository/
 
 - Create a python environment (using conda for convenience)
 
-```conda create -n pycswdev```
+```conda create -n pycswdev python==3.9```
 
 - Activate newly created environment
 
