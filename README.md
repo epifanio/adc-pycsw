@@ -13,8 +13,13 @@ Setup and deployment of pycsw for the Arctic Data Centre (ADC) project
 
 - Copy the plugin files into the `pycsw` source code
 
-```cp adc-pycsw/main/plugins/repository/solr_metno.py pycsw/pycsw/plugins/repository/```
-```cp adc-pycsw/main/plugins/repository/solr_helper.py pycsw/pycsw/plugins/repository/```
+```
+cp adc-pycsw/main/plugins/repository/solr_metno.py pycsw/pycsw/plugins/repository/
+```
+
+```
+cp adc-pycsw/main/plugins/repository/solr_helper.py pycsw/pycsw/plugins/repository/
+```
 
 - Create a python environment (using conda for convenience)
 
@@ -36,11 +41,11 @@ pip install -e .
 ## Setup
 
 
-- make a copy of the pycsw configuration exasmple file and name it `default.cfg` edit its content to have the following in the `server` and `repository` section:
+- make a copy of the pycsw configuration example file `default-sample.cfg` and name it `default.cfg` edit its content to have the following in the `server` and `repository` section:
 
 ```
 [server]
-home=/home/epinux/dev/WORK/pycsw
+home=/path/to/pycsw
 url=http://localhost:8000/pycsw/csw.py
 ```
 
@@ -48,7 +53,7 @@ url=http://localhost:8000/pycsw/csw.py
 [repository]
 database=None
 source=pycsw.plugins.repository.solr_metno.SOLRMETNORepository
-filter=https://solr.epinux.com/solr/mmd
+filter=https://solr.domain.com/solr/mmd
 ```
 
 - from the pycdwdev environment export the ```MMD_TO_ISO``` environment variable, to the path for the xslt used to convert MMD records to ISO, e.g.:
