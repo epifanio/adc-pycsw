@@ -41,6 +41,8 @@ import os
 
 LOGGER = logging.getLogger(__name__)
 
+from pycsw.plugins.repository.solr_helper import get_bbox
+
 class SOLRMETNORepository:
     """
     Class to interact with underlying METNO SOLR backend repository
@@ -100,8 +102,9 @@ class SOLRMETNORepository:
 
         for doc in response['response']['docs']:
             results.append(self._doc2record(doc))
-
+        print("query by ID \n")
         return results
+
 
     def query_domain(self, domain, typenames, domainquerytype='list', count=False):
         """
@@ -163,6 +166,8 @@ class SOLRMETNORepository:
         """
         Query records from underlying repository
         """
+        envelope = get_bbox(constraint)
+        solr_bbox_query = "{!field f=bbox score=overlapRatio}"+f"Within({envelope})"
         print('###################################################', 
               '\n', 
               constraint)
@@ -177,12 +182,13 @@ class SOLRMETNORepository:
             'q.op': 'OR',
             'start': startposition,
             'rows': maxrecords,
+            'fq': solr_bbox_query,
         }
         response = requests.get('%s/select' % self.filter, params=params).json()
         # print(response)
          
         total = response['response']['numFound']
-        
+        # response = response.json()
 
         for doc in response['response']['docs']:
             results.append(self._doc2record(doc))
@@ -194,7 +200,7 @@ class SOLRMETNORepository:
         #  - set paging from maxrecords and startposition
         # transform each doc result into pycsw dataset object
         # return the total hits (int, and list of dataset objects)
-        # print(constraint['_dict'])
+        print("constraint: ", constraint['_dict'])
         return str(total), results
 
     def _doc2record(self, doc):
@@ -213,9 +219,7 @@ class SOLRMETNORepository:
         record['abstract'] = doc['abstract'][0]
         record['keywords'] = ','.join(doc['keywords_keyword'])
 
-        # FIXME: derive from enviroment variable
-        xslt = '/home/epinux/mmd-to-inspire.xsl'
-        xslt = os.environ.get['MMD_TO_ISO']
+        xslt = os.environ.get('MMD_TO_ISO')
 
         transform = etree.XSLT(etree.parse(xslt))
         xml_ = base64.b64decode(doc['mmd_xml_file'])
