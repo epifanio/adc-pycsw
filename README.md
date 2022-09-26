@@ -14,16 +14,16 @@ Setup and deployment of pycsw for the Arctic Data Centre (ADC) project
 - Copy the plugin files into the `pycsw` source code
 
 ```
-cp adc-pycsw/main/plugins/repository/solr_metno.py pycsw/pycsw/plugins/repository/
+cp adc-pycsw/plugins/repository/solr_metno.py pycsw/pycsw/plugins/repository/
 ```
 
 ```
-cp adc-pycsw/main/plugins/repository/solr_helper.py pycsw/pycsw/plugins/repository/
+cp adc-pycsw/plugins/repository/solr_helper.py pycsw/pycsw/plugins/repository/
 ```
 
 - Create a python environment (using conda for convenience)
 
-```conda create -n pycswdev```
+```conda create -n pycswdev python==3.9```
 
 - Activate newly created environment
 
