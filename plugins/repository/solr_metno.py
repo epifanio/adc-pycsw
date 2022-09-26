@@ -29,7 +29,8 @@
 # =================================================================
 
 import base64
-from datetime import datetime
+from datetime import datetime, timezone
+import dateutil.parser as dparser
 import logging
 from urllib.parse import urlencode
 
@@ -129,7 +130,7 @@ class SOLRMETNORepository:
         for term in zip(*([iter(counts)] * 2)):
             LOGGER.debug('Term: %s', term)
             results.append(term)
-        
+
         return results
 
     def query_insert(self, direction='max'):
@@ -166,27 +167,55 @@ class SOLRMETNORepository:
         """
         Query records from underlying repository
         """
-        envelope = get_bbox(constraint)
-        solr_bbox_query = "{!field f=bbox score=overlapRatio}"+f"Within({envelope})"
-        print('###################################################', 
-              '\n', 
+
+        print('###################################################',
+              '\n',
               constraint)
         print(dir(constraint), type(constraint))
         results = []
-        # if constraint is none, return all the records
-        # otherwise catch the filter syntax and translate it
-        # 
 
+
+        # Default search params
         params = {
             'q': '*:*',
             'q.op': 'OR',
             'start': startposition,
             'rows': maxrecords,
-            'fq': solr_bbox_query,
         }
+
+        print(len(constraint))
+        #Only add query constraint if we have some, else return all records
+        if len(constraint) != 0:
+
+            #Do/check for  spatial search
+            envelope = get_bbox(constraint)
+            if envelope != False:
+                solr_bbox_query = "{!field f=bbox score=overlapRatio}"+f"Within({envelope})"
+                params['fq'] = solr_bbox_query
+            # if constraint is none, return all the recordsogc:PropertyName'
+            # otherwise catch the filter syntax and translate it
+            #
+            print('current constraint\n')
+            print(constraint["_dict"]["ogc:Filter"])
+
+            #Do/check for  text search
+            qstring = "*:*"
+            if "ogc:PropertyIsLike" in constraint["_dict"]["ogc:Filter"]:
+                qstring = constraint["_dict"]["ogc:Filter"]["ogc:PropertyIsLike"]["ogc:Literal"]
+                params["q"] = "full_text:"+qstring
+                print(qstring)
+            if "ogc:And" in constraint["_dict"]["ogc:Filter"]:
+                if "csw:AnyText" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:PropertyName"]:
+                    qstring = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:Literal"]
+                    params["q"] = "full_text:"+qstring
+                    print(qstring)
+
+        #Solr query
+
+        print(params)
         response = requests.get('%s/select' % self.filter, params=params).json()
-        # print(response)
-         
+        print(response)
+
         total = response['response']['numFound']
         # response = response.json()
 
@@ -194,13 +223,16 @@ class SOLRMETNORepository:
             results.append(self._doc2record(doc))
 
         print(total)
-        
+
         # TODO
         # transform constraint['_dict'] into SOLR query syntax
         #  - set paging from maxrecords and startposition
         # transform each doc result into pycsw dataset object
         # return the total hits (int, and list of dataset objects)
-        print("constraint: ", constraint['_dict'])
+
+        #DEBUG
+        if "_dict" in constraint:
+            print("constraint: ", constraint['_dict'])
         return str(total), results
 
     def _doc2record(self, doc):
@@ -218,7 +250,16 @@ class SOLRMETNORepository:
         record['title'] = doc['title'][0]
         record['abstract'] = doc['abstract'][0]
         record['keywords'] = ','.join(doc['keywords_keyword'])
+        modified = dparser.parse(doc['last_metadata_update_datetime'][0])
 
+        record['date'] = modified.isoformat()
+        record['modified'] = modified.astimezone().isoformat()
+        if 'personnel_investigator_name' in doc:
+            record['creator'] =doc['personnel_investigator_name'][0] +" (" + doc['personnel_investigator_email'][0] + "), " + doc['personnel_investigator_organisation'][0]
+        record['source'] = doc['related_url_landing_page'][0]
+        record['language'] = doc['ss_language']
+        if 'use_constraint_identifier' in doc:
+            record['rights'] = doc['use_constraint_identifier']
         xslt = os.environ.get('MMD_TO_ISO')
 
         transform = etree.XSLT(etree.parse(xslt))
@@ -230,13 +271,12 @@ class SOLRMETNORepository:
         record['mmd_xml_file'] = doc['mmd_xml_file']
 
         params = {
-            'fq': doc['metadata_identifier'],
+            #'fq': doc['metadata_identifier'],
             'q.op': 'OR',
-            'q': '*:*'
+            'q': 'metadata_identifier:'+doc['metadata_identifier']
         }
 
         mdsource_url = self.solr_select_url + urlencode(params)
         record['mdsource'] = mdsource_url
 
         return self.dataset(record)
-
