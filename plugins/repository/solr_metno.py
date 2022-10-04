@@ -249,17 +249,36 @@ class SOLRMETNORepository:
         record['wkt_geometry'] = doc['bbox']
         record['title'] = doc['title'][0]
         record['abstract'] = doc['abstract'][0]
+        record['topicategory'] = ','.join(doc['iso_topic_category'])
         record['keywords'] = ','.join(doc['keywords_keyword'])
-        modified = dparser.parse(doc['last_metadata_update_datetime'][0])
-
-        record['date'] = modified.isoformat()
-        record['modified'] = modified.astimezone().isoformat()
-        if 'personnel_investigator_name' in doc:
-            record['creator'] =doc['personnel_investigator_name'][0] +" (" + doc['personnel_investigator_email'][0] + "), " + doc['personnel_investigator_organisation'][0]
         record['source'] = doc['related_url_landing_page'][0]
         record['language'] = doc['ss_language']
+
+        #Transform the indexed time as insert_data
+        insert = dparser.parse(doc['timestamp'][0])
+        record['insert_date'] = insert.isoformat()
+
+        # Transform the last metadata update datetime as modified
+        modified = dparser.parse(doc['last_metadata_update_datetime'][0])
+        record['date_modified'] = modified.isoformat()
+
+        # Transform temporal extendt start and end dates
+        if 'temporal_extent_start_date' in doc:
+            time_begin = dparser.parse(doc['temporal_extent_start_date'][0])
+            record['time_begin'] = time_begin.isoformat()
+        if 'temporal_extent_end_date' in doc:
+            time_end = dparser.parse(doc['temporal_extent_end_date'][0])
+            record['time_end'] = time_end.isoformat()
+
+
+
+        #Transform the first investigator as creator.
+        if 'personnel_investigator_name' in doc:
+            record['creator'] =doc['personnel_investigator_name'][0] +" (" + doc['personnel_investigator_email'][0] + "), " + doc['personnel_investigator_organisation'][0]
         if 'use_constraint_identifier' in doc:
             record['rights'] = doc['use_constraint_identifier']
+
+
         xslt = os.environ.get('MMD_TO_ISO')
 
         transform = etree.XSLT(etree.parse(xslt))
