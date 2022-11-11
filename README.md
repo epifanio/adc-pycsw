@@ -66,5 +66,7 @@ filter=https://solr.domain.com/solr/mmd
 conda activate pycswdev
 python ./pycsw/wsgi.py
 ```
-
 pray!
+
+## Some info for later development
+[QueryRequestExamplesGist](https://gist.github.com/kalxas/6ecb06d61cdd487dc7f9)
