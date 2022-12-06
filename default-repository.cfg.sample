@@ -2,4 +2,4 @@
 database=None
 source=pycsw.plugins.repository.solr_metno.SOLRMETNORepository
 filter=https://solr.epinux.com/solr/mmd
-MMD_XSL_DIR= path-to-xsl-files
+MMD_XSL_DIR=path-to-xsl-files
