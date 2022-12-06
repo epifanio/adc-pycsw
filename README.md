@@ -21,6 +21,12 @@ cp adc-pycsw/plugins/repository/solr_metno.py pycsw/pycsw/plugins/repository/
 cp adc-pycsw/plugins/repository/solr_helper.py pycsw/pycsw/plugins/repository/
 ```
 
+- Copy the output profiles files into the `pycsw` source code
+
+```
+cp adc-pycsw/plugins/plugins/outputschemas/\*py pycsw/pycsw/plugins/outputschemas/
+```
+
 - Create a python environment (using conda for convenience)
 
 ```conda create -n pycswdev python==3.9```
@@ -54,6 +60,7 @@ url=http://localhost:8000/pycsw/csw.py
 database=None
 source=pycsw.plugins.repository.solr_metno.SOLRMETNORepository
 filter=https://solr.domain.com/solr/mmd
+MMD_XSL_DIR=path-to-xsl-files
 ```
 
 - from the `pycswdev` environment export the ```MMD_TO_ISO``` environment variable, to the path for the xslt used to convert MMD records to ISO, e.g.:
