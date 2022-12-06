@@ -40,7 +40,12 @@ from pycsw.core import util
 from pycsw.core.etree import etree
 import os
 
+from http.client import HTTPConnection  # py3
+
+import json
+
 LOGGER = logging.getLogger(__name__)
+HTTPConnection.debuglevel = 1
 
 from pycsw.plugins.repository.solr_helper import get_bbox
 
@@ -167,11 +172,13 @@ class SOLRMETNORepository:
         """
         Query records from underlying repository
         """
-
+        print("Query records\n")
         print('###################################################',
               '\n',
               constraint)
         print(dir(constraint), type(constraint))
+
+        print(json.dumps(constraint,indent=2, default=str))
         results = []
 
 
@@ -186,7 +193,7 @@ class SOLRMETNORepository:
         print(len(constraint))
         #Only add query constraint if we have some, else return all records
         if len(constraint) != 0:
-
+            print('parsing constraints')
             #Do/check for  spatial search
             envelope = get_bbox(constraint)
             if envelope != False:
@@ -202,23 +209,38 @@ class SOLRMETNORepository:
             qstring = "*:*"
             if "ogc:PropertyIsLike" in constraint["_dict"]["ogc:Filter"]:
                 qstring = constraint["_dict"]["ogc:Filter"]["ogc:PropertyIsLike"]["ogc:Literal"]
-                params["q"] = "full_text:"+qstring
-                print(qstring)
+                params["q"] = "full_text:(%s)" % qstring
+                print('no and ' ,qstring)
+            print('Check and')
             if "ogc:And" in constraint["_dict"]["ogc:Filter"]:
+                print('Got AND')
                 if "csw:AnyText" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:PropertyName"]:
                     qstring = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:Literal"]
-                    params["q"] = "full_text:"+qstring
+                    params["q"] = "full_text:(%s)" % qstring
                     print(qstring)
 
+                print('Test temoporal', constraint["_dict"]["ogc:Filter"])
+                if "apiso:TempExtent_begin" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsGreaterThanOrEqualTo"]["ogc:PropertyName"]:
+                    begin = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsGreaterThanOrEqualTo"]["ogc:Literal"]
+                    datestring = dparser.parse(begin)
+                    print('Begin: %s' %datestring)
+                #     params["fq"] = "temporal_extent_start_date:[%s TO *]" % datestring
+                # if "apiso:TempExtent_end" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLessThanOrEqualTo"]["ogc:PropertyName"]:
+                #     end = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLessThanOrEqualTo"]["ogc:Literal"]
+                #     datestring = dparser.parse(end)
+                #     print('End: &s' %datestring)
+                #     params["fq"] = "temporal_extent_end_date:[* TO %s]" % datestring
+                #print(json.dumps(params, indent=2, default=str))
         #Solr query
 
-        print(params)
+        print(json.dumps(params, indent=2, default=str))
+        #print(('%s/select' % self.filter, params=params).json())
         response = requests.get('%s/select' % self.filter, params=params).json()
-        print(response)
+        #print(response)
 
         total = response['response']['numFound']
         # response = response.json()
-
+        print('Found: %s' %total)
         for doc in response['response']['docs']:
             results.append(self._doc2record(doc))
 
@@ -292,7 +314,7 @@ class SOLRMETNORepository:
         params = {
             #'fq': doc['metadata_identifier'],
             'q.op': 'OR',
-            'q': 'metadata_identifier:'+doc['metadata_identifier']
+            'q': 'metadata_identifier:(%s)' % doc['metadata_identifier']
         }
 
         mdsource_url = self.solr_select_url + urlencode(params)
