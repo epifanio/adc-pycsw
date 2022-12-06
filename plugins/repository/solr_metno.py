@@ -92,7 +92,7 @@ class SOLRMETNORepository:
         results = []
 
         params = {
-            'fq': 'metadata_identifier %s' % '" OR "'.join(ids),
+            'fq': 'metadata_identifier:("%s")' % '" OR "'.join(ids),
             'q.op': 'OR',
             'q': '*:*'
         }
