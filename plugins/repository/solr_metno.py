@@ -49,7 +49,7 @@ HTTPConnection.debuglevel = 1
 
 from pycsw.plugins.repository.solr_helper import get_bbox
 
-class SOLRMETNORepository:
+class SOLRMETNORepository(object):
     """
     Class to interact with underlying METNO SOLR backend repository
     """
@@ -57,7 +57,7 @@ class SOLRMETNORepository:
         """
         Initialize repository
         """
-
+        print('SOLRMETNORepository __init__')
         self.context = context
         self.filter = repo_filter
         self.fts = False
@@ -83,11 +83,14 @@ class SOLRMETNORepository:
             self.queryables['_all'].update(self.queryables[qbl])
         self.queryables['_all'].update(self.context.md_core_model['mappings'])
 
+        #self.dataset = type('dataset', (object,), {})
+
     def dataset(self, record):
         """
         Stub to mock a pycsw dataset object for Transactions
         """
-        return type('', (object,), record)
+        print('dataset stub')
+        return type('dataset', (object,), record)
 
     def query_ids(self, ids):
         """
@@ -116,7 +119,7 @@ class SOLRMETNORepository:
         """
         Query by property domain values
         """
-
+        print('Query domain')
         results = []
 
         params = {
@@ -142,7 +145,7 @@ class SOLRMETNORepository:
         """
         Query to get latest (default) or earliest update to repository
         """
-
+        print('query_insert')
         if direction == 'min':
             sort_order = 'asc'
         else:
@@ -165,7 +168,7 @@ class SOLRMETNORepository:
         """
         Query by source
         """
-
+        print('Query_source')
         return NotImplementedError()
 
     def query(self, constraint, sortby=None, typenames=None, maxrecords=10, startposition=0):
@@ -193,18 +196,30 @@ class SOLRMETNORepository:
 
         print(len(constraint))
         #Only add query constraint if we have some, else return all records
+
+        # if 'where' in constraint:
+        #     if 'anytext' in constraint['where']:
+        #         qstring = constraint['values'][0]
+        #         qstring = qstring.replace('%','*')
+        #         params["q"] = "full_text:(%s)" % qstring
+        #     if 'query_spatial' in constraint['where']:
+        #         envelope = get_bbox(constraint)
+        #         if envelope != False:
+        #             solr_bbox_query = "{!field f=bbox score=overlapRatio}"+f"Within({envelope})"
+        #             params['fq'] = solr_bbox_query
+        #     print(params)
         if len(constraint) != 0:
             print('parsing constraints')
             #Do/check for  spatial search
             envelope = get_bbox(constraint)
             if envelope != False:
                 solr_bbox_query = "{!field f=bbox score=overlapRatio}"+f"Within({envelope})"
-                params['fq'] = solr_bbox_query
+                params['fq'].append(solr_bbox_query)
             # if constraint is none, return all the recordsogc:PropertyName'
             # otherwise catch the filter syntax and translate it
             #
             print('current constraint\n')
-            print(constraint["_dict"]["ogc:Filter"])
+            print(json.dumps(constraint["_dict"]["ogc:Filter"],indent=2, default=str))
 
             #Do/check for  text search
             qstring = "*:*"
@@ -212,47 +227,96 @@ class SOLRMETNORepository:
                 qstring = constraint["_dict"]["ogc:Filter"]["ogc:PropertyIsLike"]["ogc:Literal"]
                 qstring = qstring.replace('%','*')
                 params["q"] = "full_text:(%s)" % qstring
-                print('no and ' ,qstring)
+                print('no and isLike ' ,qstring)
             if "ogc:PropertyIsEqualTo" in constraint["_dict"]["ogc:Filter"]:
                 qstring = constraint["_dict"]["ogc:Filter"]["ogc:PropertyIsEqualTo"]["ogc:Literal"]
                 params["q"] = "full_text:(%s)" % qstring
-                print('no and ' ,qstring)
+                print('no and isEqualto' ,qstring)
             print('Check and')
             if "ogc:And" in constraint["_dict"]["ogc:Filter"]:
                 print('Got AND')
-                anyText = constraint["_dict"]["ogc:Filter"]["ogc:And"].get("ogc:PropertyIsLike",False)
-                print('AnyText: %s' % anyText)
-                #if "csw:AnyText" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:PropertyName"]:
-                if anyText:
-                    qstring = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:Literal"]
-                    qstring = qstring.replace('%','*')
-                    params["q"] = "full_text:(%s)" % qstring
-                    print('Anytext qstring:' ,qstring)
+                if "ogc:And" in constraint["_dict"]["ogc:Filter"]["ogc:And"]:
+                    print('Got AND _ AND ')
+                    anyText = constraint["_dict"]["ogc:Filter"]["ogc:And"].get("ogc:PropertyIsLike",False)
+                    print('AnyText: %s' % anyText)
+                    #if "csw:AnyText" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:PropertyName"]:
+                    if anyText:
+                        qstring = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:Literal"]
+                        qstring = qstring.replace('%','*')
+                        params["q"] = "full_text:(%s)" % qstring
+                        print('Anytext qstring:' ,qstring)
 
+                    if not anyText:
+                        anyText = constraint["_dict"]["ogc:Filter"]["ogc:And"].get("ogc:PropertyIsEqualTo",False)
+                        print('AnyText: %s' % anyText)
+                        #if "csw:AnyText" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:PropertyName"]:
+                        if anyText:
+                            qstring = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsEqualTo"]["ogc:Literal"]
+                            qstring = qstring.replace('%','*')
+                            params["q"] = "full_text:(%s)" % qstring
+                            print('Anytext qstring:' ,qstring)
+                    print('Test temoporal\n', constraint["_dict"]["ogc:Filter"])
+                    tempBegin = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:And"].get("ogc:PropertyIsGreaterThanOrEqualTo",False)
 
-                print('Test temoporal', constraint["_dict"]["ogc:Filter"])
-                tempBegin = constraint["_dict"]["ogc:Filter"]["ogc:And"].get("ogc:PropertyIsGreaterThanOrEqualTo",False)
+                    #if "apiso:TempExtent_begin" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsGreaterThanOrEqualTo"]["ogc:PropertyName"]:
+                    print("Begin string AND AND: %s" % tempBegin)
+                    if tempBegin:
+                        begin = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:And"]["ogc:PropertyIsGreaterThanOrEqualTo"]["ogc:Literal"]
+                        datestring = dparser.parse(begin)
+                        print('Begin date: %s' %datestring.strftime(dateformat))
+                        #print('Begin date: %s' % util.datetime2iso8601(begin))
+                        params["fq"].append("temporal_extent_start_date:[%s TO *]" % datestring.strftime(dateformat))
 
-                #if "apiso:TempExtent_begin" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsGreaterThanOrEqualTo"]["ogc:PropertyName"]:
-                print("Begin string: %s" % tempBegin)
-                if tempBegin:
-                    begin = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsGreaterThanOrEqualTo"]["ogc:Literal"]
-                    datestring = dparser.parse(begin)
-                    print('Begin date: %s' %datestring.strftime(dateformat))
-                    #print('Begin date: %s' % util.datetime2iso8601(begin))
-                    params["fq"].append("temporal_extent_start_date:[%s TO *]" % datestring.strftime(dateformat))
+                    tempEnd = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:And"].get("ogc:PropertyIsLessThanOrEqualTo",False)
+                    print("End string:  %s" % tempEnd)
+                    #if "apiso:TempExtent_end" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLessThanOrEqualTo"]["ogc:PropertyName"]:
+                    if tempEnd:
+                        end = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:And"]["ogc:PropertyIsLessThanOrEqualTo"]["ogc:Literal"]
+                        datestring = dparser.parse(end)
+                        print('End date: %s' %datestring.strftime(dateformat))
+                        params["fq"].append("temporal_extent_end_date:[* TO %s]" % datestring.strftime(dateformat))
+                else:
+                    anyText = constraint["_dict"]["ogc:Filter"]["ogc:And"].get("ogc:PropertyIsLike",False)
+                    print('AnyText: %s' % anyText)
+                    #if "csw:AnyText" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:PropertyName"]:
+                    if anyText:
+                        qstring = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:Literal"]
+                        qstring = qstring.replace('%','*')
+                        params["q"] = "full_text:(%s)" % qstring
+                        print('Anytext qstring:' ,qstring)
+                    if not anyText:
+                        anyText = constraint["_dict"]["ogc:Filter"]["ogc:And"].get("ogc:PropertyIsEqualTo",False)
+                        print('AnyText: %s' % anyText)
+                        #if "csw:AnyText" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:PropertyName"]:
+                        if anyText:
+                            qstring = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:Literal"]
+                            qstring = qstring.replace('%','*')
+                            params["q"] = "full_text:(%s)" % qstring
+                            print('Anytext qstring:' ,qstring)
 
-                tempEnd = constraint["_dict"]["ogc:Filter"]["ogc:And"].get("ogc:PropertyIsLessThanOrEqualTo",False)
-                print("End string:  %s" % tempEnd)
-                #if "apiso:TempExtent_end" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLessThanOrEqualTo"]["ogc:PropertyName"]:
-                if tempEnd:
-                    end = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLessThanOrEqualTo"]["ogc:Literal"]
-                    datestring = dparser.parse(end)
-                    print('End date: %s' %datestring.strftime(dateformat))
-                    params["fq"].append("temporal_extent_end_date:[* TO %s]" % datestring.strftime(dateformat))
-                #print(json.dumps(params, indent=2, default=str))
+                    print('Test temoporal', constraint["_dict"]["ogc:Filter"])
+                    tempBegin = constraint["_dict"]["ogc:Filter"]["ogc:And"].get("ogc:PropertyIsGreaterThanOrEqualTo",False)
+
+                    #if "apiso:TempExtent_begin" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsGreaterThanOrEqualTo"]["ogc:PropertyName"]:
+                    print("Begin string: %s" % tempBegin)
+                    if tempBegin:
+                        begin = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsGreaterThanOrEqualTo"]["ogc:Literal"]
+                        datestring = dparser.parse(begin)
+                        print('Begin date: %s' %datestring.strftime(dateformat))
+                        #print('Begin date: %s' % util.datetime2iso8601(begin))
+                        params["fq"].append("temporal_extent_start_date:[%s TO *]" % datestring.strftime(dateformat))
+
+                    tempEnd = constraint["_dict"]["ogc:Filter"]["ogc:And"].get("ogc:PropertyIsLessThanOrEqualTo",False)
+                    print("End string:  %s" % tempEnd)
+                    #if "apiso:TempExtent_end" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLessThanOrEqualTo"]["ogc:PropertyName"]:
+                    if tempEnd:
+                        end = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLessThanOrEqualTo"]["ogc:Literal"]
+                        datestring = dparser.parse(end)
+                        print('End date: %s' %datestring.strftime(dateformat))
+                        params["fq"].append("temporal_extent_end_date:[* TO %s]" % datestring.strftime(dateformat))
+                    #print(json.dumps(params, indent=2, default=str))
         #Solr query
-
+        print("#########################################################\n")
         print(json.dumps(params, indent=2, default=str))
         #print(('%s/select' % self.filter, params=params).json())
         response = requests.get('%s/select' % self.filter, params=params).json()
