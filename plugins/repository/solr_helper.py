@@ -9,6 +9,8 @@ def get_config():
 
     return util.parse_ini_config(configuration_path)
 
+def get_config_parser(section, entry):
+    return get_config().get(section, entry)
 
 def get_collection_filter():
     pycsw_root = wsgi.get_pycsw_root_path(os.environ, os.environ)

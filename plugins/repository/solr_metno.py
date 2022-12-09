@@ -53,7 +53,6 @@ from pycsw.plugins.repository.solr_helper import get_collection_filter
 from pycsw.plugins.repository.solr_helper import get_config
 
 
-
 class SOLRMETNORepository(object):
     """
     Class to interact with underlying METNO SOLR backend repository
