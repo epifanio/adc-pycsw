@@ -48,9 +48,7 @@ import json
 LOGGER = logging.getLogger(__name__)
 #HTTPConnection.debuglevel = 1
 
-from pycsw.plugins.repository.solr_helper import get_bbox
-from pycsw.plugins.repository.solr_helper import get_collection_filter
-from pycsw.plugins.repository.solr_helper import get_config
+from pycsw.plugins.repository.solr_helper import get_bbox, get_collection_filter, get_config_parser
 
 
 class SOLRMETNORepository(object):
@@ -409,9 +407,10 @@ class SOLRMETNORepository(object):
             record['rights'] = doc['use_constraint_identifier']
 
 
-        xslt = os.environ.get('MMD_TO_ISO')
+        # xslt = os.environ.get('MMD_TO_ISO')
+        xslt_file = get_config_parser("xslt", "mmd_to_iso")
 
-        transform = etree.XSLT(etree.parse(xslt))
+        transform = etree.XSLT(etree.parse(xslt_file))
         xml_ = base64.b64decode(doc['mmd_xml_file'])
 
         doc_ = etree.fromstring(xml_, self.context.parser)
