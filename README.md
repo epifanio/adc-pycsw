@@ -24,7 +24,7 @@ cp adc-pycsw/plugins/repository/solr_helper.py pycsw/pycsw/plugins/repository/
 - Copy the output profiles files into the `pycsw` source code
 
 ```
-cp adc-pycsw/plugins/plugins/outputschemas/\*py pycsw/pycsw/plugins/outputschemas/
+cp adc-pycsw/plugins/outputschemas/*py pycsw/pycsw/plugins/outputschemas/
 ```
 
 - Create a python environment (using conda for convenience)
