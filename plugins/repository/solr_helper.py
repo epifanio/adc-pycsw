@@ -1,3 +1,26 @@
+import os
+import configparser
+from pycsw import wsgi
+from pycsw.core import util
+
+def get_config():
+    pycsw_root = wsgi.get_pycsw_root_path(os.environ, os.environ)
+    configuration_path = wsgi.get_configuration_path(os.environ, os.environ, pycsw_root)
+
+    return util.parse_ini_config(configuration_path)
+
+
+def get_collection_filter():
+    pycsw_root = wsgi.get_pycsw_root_path(os.environ, os.environ)
+    configuration_path = wsgi.get_configuration_path(os.environ, os.environ, pycsw_root)
+
+    config = configparser.ConfigParser(interpolation=util.EnvInterpolation())
+
+    with open(configuration_path, encoding='utf-8') as scp:
+        config.read_file(scp)
+        collection_filter = config.get("repository", "adc_collection")
+    return collection_filter.replace(',',' ')
+
 def get_bbox(query, right_hand_envelope=False):
         # first check if there is a key: "ogc:Filter"
     if "ogc:BBOX" in query["_dict"]["ogc:Filter"]:
