@@ -115,7 +115,7 @@ class SOLRMETNORepository(object):
             'q': '*:*'
         }
 
-        if self.adc_collection_filter != '':
+        if self.adc_collection_filter != '' or self.adc_collection_filter !=None:
             params['fq'].append('collection:(%s)' % self.adc_collection_filter)
 
         print(params)
@@ -145,7 +145,7 @@ class SOLRMETNORepository(object):
             'facet.field': domain,
             'fq': [],
         }
-        if self.adc_collection_filter != '':
+        if self.adc_collection_filter != '' or self.adc_collection_filter !=None:
             params['fq'].append('collection:(%s)' % self.adc_collection_filter)
 
         print(params)
@@ -176,7 +176,7 @@ class SOLRMETNORepository(object):
             'sort': 'timestamp %s' % sort_order,
             'fq': []
         }
-        if self.adc_collection_filter != '':
+        if self.adc_collection_filter != '' or self.adc_collection_filter !=None:
             params['fq'].append('collection:(%s)' % self.adc_collection_filter)
 
 
@@ -338,7 +338,7 @@ class SOLRMETNORepository(object):
                         params["fq"].append("temporal_extent_end_date:[* TO %s]" % datestring.strftime(dateformat))
                     #print(json.dumps(params, indent=2, default=str))
         #Solr query
-        if self.adc_collection_filter != '':
+        if self.adc_collection_filter != '' or self.adc_collection_filter !=None:
             params['fq'].append('collection:(%s)' % self.adc_collection_filter)
 
         print("#########################################################\n")
