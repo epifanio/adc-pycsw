@@ -42,7 +42,7 @@ def write_record(result, esn, context, url=None):
     # run lxml XSLT transformation and return against
     # result.mmd_xml_file (which needs to base64 decoded)
     # https://lxml.de/xpathxslt.html#xslt
-    xslt_file = get_config_parser("xslt", "dif10")
+    xslt_file = get_config_parser("xslt", "wmo")
     transform = etree.XSLT(etree.parse(xslt_file))
     mmd = base64.b64decode(result.mmd_xml_file)
     doc = etree.fromstring(mmd, context.parser)
