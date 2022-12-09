@@ -58,10 +58,19 @@ url=http://localhost:8000/pycsw/csw.py
 ```
 [repository]
 database=None
+table=None
 source=pycsw.plugins.repository.solr_metno.SOLRMETNORepository
-filter=https://solr.domain.com/solr/mmd
-MMD_XSL_DIR=path-to-xsl-files
-adc_collection=NBS,SIOS (None for no filtering)
+filter=http://solr:8983/solr/adc
+adc_collection=ADC,NBS
+MMD_XSL_DIR=/usr/local/share/mmd/xslt/
+
+[xslt]
+mmd_to_iso=/usr/local/share/mmd/xslt/mmd-to-inspire.xsl
+dif=/usr/local/share/mmd/xslt/mmd-to-dif.xsl
+dif10=/usr/local/share/mmd/xslt/mmd-to-dif10.xsl
+wmo=/usr/local/share/mmd/xslt/mmd-to-wmo.xsl
+mmd_to_inspire=/usr/local/share/mmd/xslt/mmd-to-inspire.xsl
+
 ```
 
 - from the `pycswdev` environment export the ```MMD_TO_ISO``` environment variable, to the path for the xslt used to convert MMD records to ISO, e.g.:
