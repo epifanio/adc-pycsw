@@ -244,8 +244,30 @@ class SOLRMETNORepository(object):
             qstring = "*:*"
             if "ogc:PropertyIsLike" in constraint["_dict"]["ogc:Filter"]:
                 qstring = constraint["_dict"]["ogc:Filter"]["ogc:PropertyIsLike"]["ogc:Literal"]
+                name = constraint["_dict"]["ogc:Filter"]["ogc:PropertyIsLike"]["ogc:PropertyName"]
                 qstring = qstring.replace('%','*')
-                params["q"] = "full_text:(%s)" % qstring
+                if 'title' in name.lower():
+                    params["q"] = "title:(%s)" % qstring
+                elif 'abstract' in name.lower():
+                    params["q"] = "abstract:(%s)" % qstring
+                elif 'subject' in name.lower():
+                    params["q"] = "keywords_keyword:(%s)" % qstring
+                elif 'creator' in name.lower():
+                    params["q"] = "personnel_investigator_name:(%s)" % qstring
+                elif 'contributor' in name.lower():
+                    params["q"] = "personnel_technical_name:(%s) OR personnel_metadata_author_name:(%s)" % (qstring, qstring)
+                elif 'dc:source' in name:
+                    params["q"] = "related_url_landing_page:(%s)" % qstring
+                elif 'format' in name.lower():
+                    params["q"] = "storage_information_file_format:(%s)" % qstring
+                elif 'language' in name.lower():
+                    params["q"] = "dataset_language:(%s)" % qstring
+                elif 'publisher' in name.lower():
+                    params["q"] = "dataset_citation_publisher:(%s)" % qstring
+                elif 'rights' in name.lower():
+                    params["q"] = "use_constraint_identifier:(%s) OR use_constraint_license_text:(%s)" % (qstring, qstring)
+                else:
+                    params["q"] = "full_text:(%s)" % qstring
                 #print('no and isLike ' ,qstring)
             if "ogc:PropertyIsEqualTo" in constraint["_dict"]["ogc:Filter"]:
                 qstring = constraint["_dict"]["ogc:Filter"]["ogc:PropertyIsEqualTo"]["ogc:Literal"]
@@ -342,14 +364,21 @@ class SOLRMETNORepository(object):
         print(json.dumps(params, indent=2, default=str))
         #print(('%s/select' % self.filter, params=params).json())
         response = requests.get('%s/select' % self.filter, params=params).json()
+        #print("######################  ---  ###################################\n")
+        #print('%s/select' % self.filter)
+        #print(params)
         #print(response)
+        #print(len(response['response']['docs']))
+        #for i in response['response']['docs']:
+        #    print(i['metadata_identifier'])
+        #print("######################  ---  ###################################\n")
 
         total = response['response']['numFound']
         # response = response.json()
         print('Found: %s' %total)
         for doc in response['response']['docs']:
             results.append(self._doc2record(doc))
-
+            #print(doc['metadata_identifier'])
         #print(total)
 
         # TODO
@@ -377,18 +406,24 @@ class SOLRMETNORepository(object):
         record['wkt_geometry'] = doc['bbox']
         record['title'] = doc['title'][0]
         record['abstract'] = doc['abstract'][0]
-        record['topicategory'] = ','.join(doc['iso_topic_category'])
-        record['keywords'] = ','.join(doc['keywords_keyword'])
-        record['source'] = doc['related_url_landing_page'][0]
-        record['language'] = doc['ss_language']
+        if 'iso_topic_category' in doc:
+            record['topicategory'] = ','.join(doc['iso_topic_category'])
+        if 'keywords_keyword' in doc:
+            record['keywords'] = ','.join(doc['keywords_keyword'])
+        #record['source'] = doc['related_url_landing_page'][0]
+        if 'related_url_landing_page' in doc:
+            record['source'] = doc['related_url_landing_page'][0]
+        if 'dataset_language' in doc:
+            record['language'] = doc['dataset_language']
 
         #Transform the indexed time as insert_data
         insert = dparser.parse(doc['timestamp'][0])
         record['insert_date'] = insert.isoformat()
 
         # Transform the last metadata update datetime as modified
-        modified = dparser.parse(doc['last_metadata_update_datetime'][0])
-        record['date_modified'] = modified.isoformat()
+        if 'last_metadata_update_datetime' in doc:
+            modified = dparser.parse(doc['last_metadata_update_datetime'][0])
+            record['date_modified'] = modified.isoformat()
 
         # Transform temporal extendt start and end dates
         if 'temporal_extent_start_date' in doc:
@@ -398,13 +433,47 @@ class SOLRMETNORepository(object):
             time_end = dparser.parse(doc['temporal_extent_end_date'][0])
             record['time_end'] = time_end.isoformat()
 
-
+        links = []
+        if 'data_access_url_opendap' in doc: 
+            links.append({'name': 'OPeNDAP access', 'description': 'OPeNDAP access', 'protocol': 'OPeNDAP:OPeNDAP', 'url': doc['data_access_url_opendap'][0]})
+        if 'data_access_url_ogc_wms' in doc: 
+            links.append({'name': 'OGC-WMS Web Map Service', 'description': 'OGC-WMS Web Map Service', 'protocol': 'OGC:WMS', 'url': doc['data_access_url_ogc_wms'][0]})
+        if 'data_access_url_http' in doc: 
+            links.append({'name': 'File for download', 'description': 'Direct HTTP download', 'protocol': 'WWW:DOWNLOAD-1.0-http--download', 'url': doc['data_access_url_http'][0]})
+        if 'data_access_url_ftp' in doc: 
+            links.append({'name': 'File for download', 'description': 'Direct FTP download', 'protocol': 'ftp', 'url': doc['data_access_url_ftp'][0]})
+        record['links'] = json.dumps(links)
 
         #Transform the first investigator as creator.
         if 'personnel_investigator_name' in doc:
-            record['creator'] =doc['personnel_investigator_name'][0] +" (" + doc['personnel_investigator_email'][0] + "), " + doc['personnel_investigator_organisation'][0]
-        if 'use_constraint_identifier' in doc:
+            # record['creator'] =doc['personnel_investigator_name'][0] +" (" + doc['personnel_investigator_email'][0] + "), " + doc['personnel_investigator_organisation'][0]
+            record['creator'] = ','.join(doc['personnel_investigator_name']) # +" (" + doc['personnel_investigator_email'][0] + "), " + doc['personnel_investigator_organisation'][0]
+
+        if 'personnel_technical_name' in doc:
+            #for i in doc['personnel_technical_name']:
+                #record['contributor'] = doc['personnel_technical_name'][i]
+            record['contributor'] = ','.join(doc['personnel_technical_name'])
+            
+        if 'personnel_metadata_author_name' in doc:
+            if 'contributor' in record: 
+                record['contributor'] += ',' + ','.join(doc['personnel_metadata_author_name'])
+            else:
+                record['contributor'] = ','.join(doc['personnel_metadata_author_name'])
+        
+        #rights is mapped to accessconstraint, although we provide this info in the use constraint.
+        #we should use dc:license instead, but it is not mapped in csw. 
+        if 'use_constraint_license_text' in doc:
+            record['rights'] = doc['use_constraint_license_text']
+            record['accessconstraints'] = doc['use_constraint_license_text']
+        if 'use_constraint_identifier' in doc and 'use_constraint_license_text' not in doc: 
             record['rights'] = doc['use_constraint_identifier']
+            record['accessconstraints'] = doc['use_constraint_identifier']
+
+        if 'dataset_citation_publisher' in doc:
+            record['publisher'] = doc['dataset_citation_publisher'][0]
+
+        if 'storage_information_file_format' in doc:
+            record['format'] = doc['storage_information_file_format']
 
 
         # xslt = os.environ.get('MMD_TO_ISO')
@@ -412,12 +481,15 @@ class SOLRMETNORepository(object):
 
         transform = etree.XSLT(etree.parse(xslt_file))
         xml_ = base64.b64decode(doc['mmd_xml_file'])
+        # print("xml_: ", xml_)
 
         doc_ = etree.fromstring(xml_, self.context.parser)
+        #print("doc_:", doc_)
         result_tree = transform(doc_).getroot()
         record['xml'] = etree.tostring(result_tree)
         record['mmd_xml_file'] = doc['mmd_xml_file']
-
+        
+        #print(record['xml'])
         params = {
             #'fq': doc['metadata_identifier'],
             'q.op': 'OR',
