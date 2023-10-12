@@ -111,7 +111,7 @@ class SOLRMETNORepository(object):
             'q.op': 'OR',
             'q': '*:*'
         }
-
+        params['fq'].append('metadata_status:%s' % 'Active')
         if self.adc_collection_filter != '' or self.adc_collection_filter !=None:
             params['fq'].append('collection:(%s)' % self.adc_collection_filter)
 
@@ -142,6 +142,7 @@ class SOLRMETNORepository(object):
             'facet.field': domain,
             'fq': [],
         }
+        params['fq'].append('metadata_status:%s' % 'Active')
         if self.adc_collection_filter != '' or self.adc_collection_filter !=None:
             params['fq'].append('collection:(%s)' % self.adc_collection_filter)
 
@@ -173,6 +174,7 @@ class SOLRMETNORepository(object):
             'sort': 'timestamp %s' % sort_order,
             'fq': []
         }
+        params['fq'].append('metadata_status:%s' % 'Active')
         if self.adc_collection_filter != '' or self.adc_collection_filter !=None:
             params['fq'].append('collection:(%s)' % self.adc_collection_filter)
 
@@ -212,7 +214,7 @@ class SOLRMETNORepository(object):
             'rows': maxrecords,
             'fq': [],
         }
-
+        params['fq'].append('metadata_status:%s' % 'Active')
         #print(len(constraint))
         #Only add query constraint if we have some, else return all records
 
