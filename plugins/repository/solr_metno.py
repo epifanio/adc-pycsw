@@ -111,7 +111,7 @@ class SOLRMETNORepository(object):
             'q.op': 'OR',
             'q': '*:*'
         }
-
+        params['fq'].append('metadata_status:%s' % 'Active')
         if self.adc_collection_filter != '' or self.adc_collection_filter !=None:
             params['fq'].append('collection:(%s)' % self.adc_collection_filter)
 
@@ -121,6 +121,7 @@ class SOLRMETNORepository(object):
         response = response.json()
 
         for doc in response['response']['docs']:
+            print(self._doc2record(doc))
             results.append(self._doc2record(doc))
         #print("query by ID \n")
         return results
@@ -142,6 +143,7 @@ class SOLRMETNORepository(object):
             'facet.field': domain,
             'fq': [],
         }
+        params['fq'].append('metadata_status:%s' % 'Active')
         if self.adc_collection_filter != '' or self.adc_collection_filter !=None:
             params['fq'].append('collection:(%s)' % self.adc_collection_filter)
 
@@ -173,6 +175,7 @@ class SOLRMETNORepository(object):
             'sort': 'timestamp %s' % sort_order,
             'fq': []
         }
+        params['fq'].append('metadata_status:%s' % 'Active')
         if self.adc_collection_filter != '' or self.adc_collection_filter !=None:
             params['fq'].append('collection:(%s)' % self.adc_collection_filter)
 
@@ -212,7 +215,7 @@ class SOLRMETNORepository(object):
             'rows': maxrecords,
             'fq': [],
         }
-
+        params['fq'].append('metadata_status:%s' % 'Active')
         #print(len(constraint))
         #Only add query constraint if we have some, else return all records
 
@@ -275,18 +278,40 @@ class SOLRMETNORepository(object):
                 #print('no and isEqualto' ,qstring)
             #print('Check and')
             if "ogc:And" in constraint["_dict"]["ogc:Filter"]:
-                #print('Got AND')
+                print('Got AND')
                 if "ogc:And" in constraint["_dict"]["ogc:Filter"]["ogc:And"]:
-                    #print('Got AND _ AND ')
+                    print('Got AND _ AND ')
                     anyText = constraint["_dict"]["ogc:Filter"]["ogc:And"].get("ogc:PropertyIsLike",False)
-                    #print('AnyText: %s' % anyText)
+                    print('AnyText: %s' % anyText)
                     #if "csw:AnyText" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:PropertyName"]:
                     if anyText:
                         qstring = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:Literal"]
+                        name = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:PropertyName"]
                         qstring = qstring.replace('%','*')
-                        params["q"] = "full_text:(%s)" % qstring
-                        #print('Anytext qstring:' ,qstring)
-
+                        #params["q"] = "full_text:(%s)" % qstring
+                        if 'title' in name.lower():
+                            params["q"] = "title:(%s)" % qstring
+                        elif 'abstract' in name.lower():
+                            params["q"] = "abstract:(%s)" % qstring
+                        elif 'subject' in name.lower():
+                            params["q"] = "keywords_keyword:(%s)" % qstring
+                        elif 'creator' in name.lower():
+                            params["q"] = "personnel_investigator_name:(%s)" % qstring
+                        elif 'contributor' in name.lower():
+                            params["q"] = "personnel_technical_name:(%s) OR personnel_metadata_author_name:(%s)" % (qstring, qstring)
+                        elif 'dc:source' in name:
+                            params["q"] = "related_url_landing_page:(%s)" % qstring
+                        elif 'format' in name.lower():
+                            params["q"] = "storage_information_file_format:(%s)" % qstring
+                        elif 'language' in name.lower():
+                            params["q"] = "dataset_language:(%s)" % qstring
+                        elif 'publisher' in name.lower():
+                            params["q"] = "dataset_citation_publisher:(%s)" % qstring
+                        elif 'rights' in name.lower():
+                            params["q"] = "use_constraint_identifier:(%s) OR use_constraint_license_text:(%s)" % (qstring, qstring)
+                        else:
+                            params["q"] = "full_text:(%s)" % qstring
+                                #print('Anytext qstring:' ,qstring)
                     if not anyText:
                         anyText = constraint["_dict"]["ogc:Filter"]["ogc:And"].get("ogc:PropertyIsEqualTo",False)
                         #print('AnyText: %s' % anyText)
@@ -318,13 +343,38 @@ class SOLRMETNORepository(object):
                         params["fq"].append("temporal_extent_end_date:[* TO %s]" % datestring.strftime(dateformat))
                 else:
                     anyText = constraint["_dict"]["ogc:Filter"]["ogc:And"].get("ogc:PropertyIsLike",False)
+                    print('Got here')
                     #print('AnyText: %s' % anyText)
                     #if "csw:AnyText" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:PropertyName"]:
                     if anyText:
                         qstring = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:Literal"]
+                        name = constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:PropertyName"]
                         qstring = qstring.replace('%','*')
-                        params["q"] = "full_text:(%s)" % qstring
+                        #params["q"] = "full_text:(%s)" % qstring
                         #print('Anytext qstring:' ,qstring)
+                        if 'title' in name.lower():
+                            params["q"] = "title:(%s)" % qstring
+                        elif 'abstract' in name.lower():
+                            params["q"] = "abstract:(%s)" % qstring
+                        elif 'subject' in name.lower():
+                            params["q"] = "keywords_keyword:(%s)" % qstring
+                        elif 'creator' in name.lower():
+                            params["q"] = "personnel_investigator_name:(%s)" % qstring
+                        elif 'contributor' in name.lower():
+                            params["q"] = "personnel_technical_name:(%s) OR personnel_metadata_author_name:(%s)" % (qstring, qstring)
+                        elif 'dc:source' in name:
+                            params["q"] = "related_url_landing_page:(%s)" % qstring
+                        elif 'format' in name.lower():
+                            params["q"] = "storage_information_file_format:(%s)" % qstring
+                        elif 'language' in name.lower():
+                            params["q"] = "dataset_language:(%s)" % qstring
+                        elif 'publisher' in name.lower():
+                            params["q"] = "dataset_citation_publisher:(%s)" % qstring
+                        elif 'rights' in name.lower():
+                            params["q"] = "use_constraint_identifier:(%s) OR use_constraint_license_text:(%s)" % (qstring, qstring)
+                        else:
+                            params["q"] = "full_text:(%s)" % qstring
+                                #print('Anytext qstring:' ,qstring)
                     if not anyText:
                         anyText = constraint["_dict"]["ogc:Filter"]["ogc:And"].get("ogc:PropertyIsEqualTo",False)
                         #print('AnyText: %s' % anyText)
@@ -358,6 +408,7 @@ class SOLRMETNORepository(object):
                     #print(json.dumps(params, indent=2, default=str))
         #Solr query
         if self.adc_collection_filter != '' or self.adc_collection_filter !=None:
+            
             params['fq'].append('collection:(%s)' % self.adc_collection_filter)
 
         print("#########################################################\n")
@@ -388,8 +439,8 @@ class SOLRMETNORepository(object):
         # return the total hits (int, and list of dataset objects)
 
         #DEBUG
-        #if "_dict" in constraint:
-        #    print("constraint: ", constraint['_dict'])
+        if "_dict" in constraint:
+            print("constraint: ", constraint['_dict'])
         return str(total), results
 
     def _doc2record(self, doc):
