@@ -278,9 +278,9 @@ class SOLRMETNORepository(object):
                 #print('no and isEqualto' ,qstring)
             #print('Check and')
             if "ogc:And" in constraint["_dict"]["ogc:Filter"]:
-                print('Got AND')
+                # print('Got AND')
                 if "ogc:And" in constraint["_dict"]["ogc:Filter"]["ogc:And"]:
-                    print('Got AND _ AND ')
+                    # print('Got AND _ AND ')
                     anyText = constraint["_dict"]["ogc:Filter"]["ogc:And"].get("ogc:PropertyIsLike",False)
                     print('AnyText: %s' % anyText)
                     #if "csw:AnyText" in constraint["_dict"]["ogc:Filter"]["ogc:And"]["ogc:PropertyIsLike"]["ogc:PropertyName"]:
@@ -438,9 +438,9 @@ class SOLRMETNORepository(object):
         # transform each doc result into pycsw dataset object
         # return the total hits (int, and list of dataset objects)
 
-        #DEBUG
-        if "_dict" in constraint:
-            print("constraint: ", constraint['_dict'])
+        # DEBUG
+        # if "_dict" in constraint:
+        #     print("constraint: ", constraint['_dict'])
         return str(total), results
 
     def _doc2record(self, doc):
