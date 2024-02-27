@@ -204,7 +204,7 @@ def parse_time_query(constraint, params, and_flag=False):
             datestring = dparser.parse(end)
             # print(datestring)
             params["fq"].append(
-                "temporal_extent_end_date:[%s TO *]" % datestring.strftime(dateformat)
+                "temporal_extent_end_date:[* TO %s]" % datestring.strftime(dateformat)
             )
             # print(params)
     # print('######## PARAMS just after calling time query #########')

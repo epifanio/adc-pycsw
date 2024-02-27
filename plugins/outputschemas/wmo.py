@@ -46,6 +46,8 @@ def write_record(result, esn, context, url=None):
     transform = etree.XSLT(etree.parse(xslt_file))
     mmd = base64.b64decode(result.mmd_xml_file)
     doc = etree.fromstring(mmd, context.parser)
-    result_tree = transform(doc).getroot()
+    pl = '/usr/local/share/parent_list.xml'
+    result_tree = transform(doc, path_to_parent_list=etree.XSLT.strparam(pl)).getroot()
+    # result_tree = transform(doc).getroot()
 
     return result_tree
