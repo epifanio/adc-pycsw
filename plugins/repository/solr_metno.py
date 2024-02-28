@@ -360,7 +360,16 @@ class SOLRMETNORepository(object):
         record["identifier"] = doc["metadata_identifier"]
         record["typename"] = "gmd:MD_Metadata"
         record["schema"] = "http://www.isotc211.org/2005/gmd"
-        record["type"] = "dataset"
+        # check for parent-child relationship
+        if 'isParent' in doc and doc["isParent"]:
+            record["type"] = "series"
+        else:
+            record["type"] = "dataset"
+        #
+        if 'isChild' in doc and doc["isChild"]:
+            record["parentidentifier"] = doc["related_dataset"][0]    
+            # print(doc.keys())        
+        # record["type"] = "dataset"
         record["wkt_geometry"] = doc["bbox"]
         record["title"] = doc["title"][0]
         record["abstract"] = doc["abstract"][0]
@@ -477,7 +486,9 @@ class SOLRMETNORepository(object):
 
         doc_ = etree.fromstring(xml_, self.context.parser)
         # print("doc_:", doc_)
-        result_tree = transform(doc_).getroot()
+        pl = '/usr/local/share/parent_list.xml'
+        result_tree = transform(doc_, path_to_parent_list=etree.XSLT.strparam(pl)).getroot()
+        # result_tree = transform(doc_).getroot()
         record["xml"] = etree.tostring(result_tree)
         record["mmd_xml_file"] = doc["mmd_xml_file"]
 
