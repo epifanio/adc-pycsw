@@ -225,6 +225,40 @@ def parse_field_OR_query(constraint, and_flag=False, or_flag=False):
         return f"({name}:{qstring})"
 
 
+def parse_apiso_query(constraint, params, and_flag=False, or_flag=False):
+    # apiso:Type
+    if or_flag:
+        property_name = list(constraint.keys())[0]
+        print("property_name: ", property_name)
+        qstring = constraint[property_name]["ogc:Literal"]
+        name = constraint[property_name]["ogc:PropertyName"]
+        print("name: ", name)
+        print("qstring: ", qstring)
+    if not and_flag and not or_flag:
+        property_name = list(constraint["_dict"]["ogc:Filter"].keys())[0]
+        print("property_name: ", property_name)
+        qstring = constraint["_dict"]["ogc:Filter"][property_name]["ogc:Literal"]
+        name = constraint["_dict"]["ogc:Filter"][property_name]["ogc:PropertyName"]
+    if not or_flag and and_flag:
+        property_name = list(constraint["_dict"]["ogc:Filter"]["ogc:And"].keys())[0]
+        print("property_name: ", property_name)
+        qstring = constraint["_dict"]["ogc:Filter"]["ogc:And"][property_name][
+            "ogc:Literal"
+        ]
+        name = constraint["_dict"]["ogc:Filter"]["ogc:And"][property_name][
+            "ogc:PropertyName"
+        ]
+    qstring = qstring.replace("%", "*")
+    if "type" in name.lower():
+        print(f"got APISO type query with {name} set to {qstring}")
+        if qstring.lower() == "dataset":
+            params["fq"].append("isParent:false")
+        elif qstring.lower() == "series":
+            params["fq"].append("isParent:true")
+    if "apiso:Anytext" in name:
+            params["q"] = "full_text:(%s)" % qstring
+    return params
+
 def parse_field_query(constraint, params, and_flag=False, or_flag=False):
     print("#### got the following constraint: ", constraint)
     if or_flag:
@@ -276,5 +310,6 @@ def parse_field_query(constraint, params, and_flag=False, or_flag=False):
             % (qstring, qstring)
         )
     else:
-        params["q"] = "full_text:(%s)" % qstring
+        if "apiso:Anytext" in name:
+            params["q"] = "full_text:(%s)" % qstring
     return params

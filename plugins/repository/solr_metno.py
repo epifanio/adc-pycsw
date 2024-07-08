@@ -58,6 +58,7 @@ from pycsw.plugins.repository.solr_helper import (
     parse_field_OR_query,
     parse_bbox_OR_query,
     parse_bbox_query,
+    parse_apiso_query,
 )
 
 # I removed parse_bbox_OR_query by calling it internally via the OR flag in parse_bbox_query
@@ -253,7 +254,8 @@ class SOLRMETNORepository(object):
                 item in constraint["_dict"]["ogc:Filter"] for item in anytext_constraint
             ):
                 params = parse_field_query(constraint, params, and_flag=False)
-
+                # add apiso query filter:
+                params = parse_apiso_query(constraint, params, and_flag=False)
             if not any(
                 item in constraint["_dict"]["ogc:Filter"] for item in anytext_constraint
             ):
@@ -320,12 +322,14 @@ class SOLRMETNORepository(object):
                 ):
                     print("executing parse_field_query inside 1st AND")
                     params = parse_field_query(constraint, params, and_flag=True)
+                    params = parse_apiso_query(constraint, params, and_flag=True)
 
                 if "ogc:And" in constraint["_dict"]["ogc:Filter"]["ogc:And"]:
                     print("Got AND _ AND ")
                     print(constraint["_dict"]["ogc:Filter"]["ogc:And"])
 
         print("#########################################################\n")
+        print("#################", params["q"], "###############################")
         print(json.dumps(params, indent=2, default=str))
 
         # print(('%s/select' % self.filter, params=params).json())
