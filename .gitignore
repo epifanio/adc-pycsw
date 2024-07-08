@@ -127,3 +127,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+plugins/repository/solr_helper_dev.py
+plugins/repository/solr_metno_dev.py
