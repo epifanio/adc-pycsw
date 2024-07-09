@@ -59,6 +59,7 @@ from pycsw.plugins.repository.solr_helper import (
     parse_bbox_OR_query,
     parse_bbox_query,
     parse_apiso_query,
+    get_iso_transformer,
 )
 
 # I removed parse_bbox_OR_query by calling it internally via the OR flag in parse_bbox_query
@@ -218,6 +219,8 @@ class SOLRMETNORepository(object):
         # DEBUG:
         # if "_dict" in constraint:
         #     print("constraint: ", constraint['_dict'])
+        print(" #####  get_iso_transformer #####", "\n", get_iso_transformer(), "\n", "#####  get_iso_transformer #####")
+        # mmd_to_NOiso
         print(json.dumps(constraint, indent=2, default=str))
 
         results = []
@@ -482,7 +485,8 @@ class SOLRMETNORepository(object):
             record["format"] = doc["storage_information_file_format"]
 
         # xslt = os.environ.get('MMD_TO_ISO')
-        xslt_file = get_config_parser("xslt", "mmd_to_iso")
+        xslt_file = get_iso_transformer()
+        # xslt_file = get_config_parser("xslt", "mmd_to_iso")
 
         transform = etree.XSLT(etree.parse(xslt_file))
         xml_ = base64.b64decode(doc["mmd_xml_file"])

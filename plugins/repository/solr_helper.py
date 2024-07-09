@@ -16,6 +16,12 @@ def get_config_parser(section, entry):
     return get_config().get(section, entry)
 
 
+def get_iso_transformer():
+    mmd_to_iso = get_config_parser("repository", "xslt_iso_transformer")
+    return get_config_parser("xslt", mmd_to_iso)
+
+
+
 def get_collection_filter():
     pycsw_root = wsgi.get_pycsw_root_path(os.environ, os.environ)
     configuration_path = wsgi.get_configuration_path(os.environ, os.environ, pycsw_root)
