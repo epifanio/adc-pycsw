@@ -245,6 +245,8 @@ def parse_apiso_query(constraint, params, and_flag=False, or_flag=False):
         print("property_name: ", property_name)
         qstring = constraint["_dict"]["ogc:Filter"][property_name]["ogc:Literal"]
         name = constraint["_dict"]["ogc:Filter"][property_name]["ogc:PropertyName"]
+        print("name: ", name)
+        print("qstring: ", qstring)
     if not or_flag and and_flag:
         property_name = list(constraint["_dict"]["ogc:Filter"]["ogc:And"].keys())[0]
         print("property_name: ", property_name)
@@ -254,7 +256,10 @@ def parse_apiso_query(constraint, params, and_flag=False, or_flag=False):
         name = constraint["_dict"]["ogc:Filter"]["ogc:And"][property_name][
             "ogc:PropertyName"
         ]
+        print("name: ", name)
+        print("qstring: ", qstring)
     qstring = qstring.replace("%", "*")
+    # print()
     if "type" in name.lower():
         print(f"got APISO type query with {name} set to {qstring}")
         if qstring.lower() == "dataset":
@@ -263,6 +268,9 @@ def parse_apiso_query(constraint, params, and_flag=False, or_flag=False):
             params["fq"].append("isParent:true")
     if "apiso:Anytext" in name:
             params["q"] = "full_text:(%s)" % qstring
+    if "apiso:ParentIdentifier" in name:
+        params["fq"].append(f'related_dataset:"{qstring}"')
+        print(params)
     return params
 
 def parse_field_query(constraint, params, and_flag=False, or_flag=False):
