@@ -1,7 +1,7 @@
 import os
-import configparser
 from pycsw import wsgi
 from pycsw.core import util
+from pycsw.ogc.api.util import yaml_load
 import dateutil.parser as dparser
 
 def get_solr_connection():
@@ -12,7 +12,8 @@ def get_config():
     pycsw_root = wsgi.get_pycsw_root_path(os.environ, os.environ)
     configuration_path = wsgi.get_configuration_path(os.environ, os.environ, pycsw_root)
 
-    return util.parse_ini_config(configuration_path)
+    with open(configuration_path, encoding="utf-8") as scp:
+        return yaml_load(scp)
 
 
 def get_config_parser(section, entry):
@@ -24,16 +25,14 @@ def get_iso_transformer():
     return get_config_parser("xslt", mmd_to_iso)
 
 
-
 def get_collection_filter():
     pycsw_root = wsgi.get_pycsw_root_path(os.environ, os.environ)
     configuration_path = wsgi.get_configuration_path(os.environ, os.environ, pycsw_root)
 
-    config = configparser.ConfigParser(interpolation=util.EnvInterpolation())
-
     with open(configuration_path, encoding="utf-8") as scp:
-        config.read_file(scp)
-        collection_filter = config.get("repository", "adc_collection")
+        config = yaml_load(scp)
+        collection_filter = config['repository'].get("adc_collection", '')
+
     return collection_filter.replace(",", " ")
 
 

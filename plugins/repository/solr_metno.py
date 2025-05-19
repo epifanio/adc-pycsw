@@ -88,9 +88,9 @@ class SOLRMETNORepository(object):
         self.local_ingest = True
         self.solr_select_url = "%s/select" % self.filter
         self.dbtype = "SOLR"
-        
         self.username, self.password = get_solr_connection()
         self.authentication = HTTPBasicAuth(self.username, self.password)
+        self.session = self
         # self.config_obj = get_config()
         self.adc_collection_filter = get_collection_filter()
         
@@ -134,17 +134,39 @@ class SOLRMETNORepository(object):
         results = []
 
         params = {
-            "fq": ['metadata_identifier:("%s")' % '" OR "'.join(ids)],
+            "fq": ['isChildmetadata_identifier:("%s")' % '" OR "'.join(ids)],
             "q.op": "OR",
             "q": "*:*",
         }
         params["fq"].append("metadata_status:%s" % "Active")
-        if self.adc_collection_filter != "" or self.adc_collection_filter != None:
+        if self.adc_collection_filter not in ['', None]:
             params["fq"].append("collection:(%s)" % self.adc_collection_filter)
 
         print(params)
 
         response = requests.get(self.solr_select_url, params=params, auth=self.authentication)
+
+        response = response.json()
+
+        for doc in response["response"]["docs"]:
+            results.append(self._doc2record(doc))
+        # print("query by ID \n")
+        return results
+
+    def query_collections(self, filters=None, limit=10):
+        ''' Query for parent collections '''
+
+        results = []
+
+        params = {
+            "fq": ['isChild:false'],
+        }
+        if self.adc_collection_filter not in ['', None]:
+            params["fq"].append("collection:(%s)" % self.adc_collection_filter)
+
+        print(params)
+        response = requests.get(self.solr_select_url, params=params)
+        print(response)
 
         response = response.json()
 
