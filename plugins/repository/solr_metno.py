@@ -31,7 +31,7 @@
 # =================================================================
 
 import base64
-import configparser
+# import configparser
 from datetime import datetime, timezone
 import dateutil.parser as dparser
 import logging
@@ -55,15 +55,9 @@ from requests.auth import HTTPBasicAuth
 
 from pycsw.plugins.repository.solr_helper import (
     get_collection_filter,
-    get_config_parser,
-    parse_time_query,
-    parse_field_query,
-    parse_field_OR_query,
-    parse_bbox_OR_query,
-    parse_bbox_query,
-    parse_apiso_query,
     get_iso_transformer,
     get_solr_connection,
+    get_solr_mapping,
 )
 
 # I removed parse_bbox_OR_query by calling it internally via the OR flag in parse_bbox_query
@@ -93,7 +87,8 @@ class SOLRMETNORepository(object):
         self.session = self
         # self.config_obj = get_config()
         self.adc_collection_filter = get_collection_filter()
-        
+        # get the solr mapping for main queriebles
+        self.fields_dict = get_solr_mapping()
         # print(self.adc_collection_filter)
 
         # generate core queryables db and obj bindings
@@ -118,6 +113,46 @@ class SOLRMETNORepository(object):
         self.queryables["_all"].update(self.context.md_core_model["mappings"])
 
         # self.dataset = type('dataset', (object,), {})
+
+    def describe(self):
+        """Derive table columns and types"""
+
+        # type_mappings = {"TEXT": "string", "VARCHAR": "string"}
+        type_mappings = {
+            "TEXT": "string",
+            "VARCHAR": "string",
+            "text_en": "string",
+            "text_general": "string",
+            "pdate": "string",
+            "bbox": "string",
+            "string": "string",
+        }
+
+        properties = {
+            "geometry": {
+                "$ref": "https://geojson.org/schema/Polygon.json",
+                "x-ogc-role": "primary-geometry",
+            }
+        }
+
+        for i in self.fields_dict:
+            if i in ["anytext", "metadata", "metadata_type", "xml"]:
+                continue
+
+            properties[i] = {"title": i}
+
+            if i == "identifier":
+                properties[i]["x-ogc-role"] = "id"
+
+            try:
+                properties[i]["type"] = type_mappings[str(fields_dict[i])]
+                if fields_dict[i] == "pdate":
+                    properties[i]["property"] = "date-time"
+            except Exception as err:
+                # LOGGER.debug(f"Cannot determine type: {err}")
+                print(f"Cannot determine type: {err}")
+
+        return properties
 
     def dataset(self, record):
         """
@@ -152,6 +187,10 @@ class SOLRMETNORepository(object):
             results.append(self._doc2record(doc))
         # print("query by ID \n")
         return results
+
+
+    def describe(self):
+        pass
 
     def query_collections(self, filters=None, limit=10):
         ''' Query for parent collections '''

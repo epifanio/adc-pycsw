@@ -3,6 +3,34 @@ from pycsw import wsgi
 from pycsw.core import util
 from pycsw.ogc.api.util import yaml_load
 import dateutil.parser as dparser
+import requests
+
+def get_solr_mapping():
+    #with open("test.yaml") as stream:
+    #    core_queriables_solr = yaml.safe_load(stream)
+    
+    # core_queriables = core_queriables_solr['solr_mapping']
+    core_queriables = get_config_parser("solr_mapping")
+
+    schema_url = f"http://157.249.78.203/solr/adc/schema/fields?"
+    # Make the request and get JSON response
+    response = requests.get(schema_url, headers={"Accept": "application/json"})
+    response.raise_for_status()
+    data = response.json()
+    fields_dict = {field["name"]: field["type"] for field in data.get("fields", [])}
+    
+    mapping_dict = {}
+    for i in core_queriables:
+        if type(core_queriables[i]) is not list:
+            if core_queriables[i] in fields_dict:
+                # print(i, "SOLR:", core_queriables[i], fields_dict[core_queriables[i]])
+                mapping_dict[i] = fields_dict[core_queriables[i]]
+        else:
+            for k, j in enumerate(core_queriables[i]):
+                if j in fields_dict:
+                    # print(j, "SOLR:", fields_dict[core_queriables[i][k]])
+                    mapping_dict[j] = fields_dict[core_queriables[i][k]]
+    return mapping_dict
 
 def get_solr_connection():
     return [get_config_parser("login", "username"), get_config_parser("login", "password")]
