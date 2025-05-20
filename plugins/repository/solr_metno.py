@@ -88,7 +88,8 @@ class SOLRMETNORepository:
         # self.config_obj = get_config()
         self.adc_collection_filter = get_collection_filter()
         # get the solr mapping for main queriebles
-        self.solr_mapping = get_solr_mapping(repo_object.get("solr_mapping"))
+        self.query_mappings = get_solr_mapping(repo_object.get("solr_mapping"))
+
         # print(self.adc_collection_filter)
 
         # generate core queryables db and obj bindings
@@ -116,7 +117,7 @@ class SOLRMETNORepository:
 
     def describe(self):
         """Derive table columns and types"""
-        LOGGER.debug("Running Describe on : %s", self.solr_mapping)
+        LOGGER.debug("Running Describe on : %s", self.query_mappings)
         # type_mappings = {"TEXT": "string", "VARCHAR": "string"}
         type_mappings = {
             "TEXT": "string",
@@ -135,7 +136,7 @@ class SOLRMETNORepository:
             }
         }
 
-        for i in self.solr_mapping:
+        for i in self.query_mappings:
             if i in ["anytext", "metadata", "metadata_type", "xml"]:
                 continue
 
@@ -145,8 +146,8 @@ class SOLRMETNORepository:
                 properties[i]["x-ogc-role"] = "id"
 
             try:
-                properties[i]["type"] = type_mappings[str(self.solr_mapping[i])]
-                if self.solr_mapping[i] == "pdate":
+                properties[i]["type"] = type_mappings[str(self.query_mappings[i])]
+                if self.query_mappings[i] == "pdate":
                     properties[i]["property"] = "date-time"
             except Exception as err:
                 # LOGGER.debug(f"Cannot determine type: {err}")
