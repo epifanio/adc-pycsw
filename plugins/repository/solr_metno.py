@@ -70,13 +70,13 @@ class SOLRMETNORepository(object):
     Class to interact with underlying METNO SOLR backend repository
     """
 
-    def __init__(self, context, repo_filter=None):
+    def __init__(self, repo_object, context):
         """
         Initialize repository
         """
         # print('SOLRMETNORepository __init__')
+        self.filter = repo_object.get('filter')
         self.context = context
-        self.filter = repo_filter
         self.fts = False
         self.label = "MetNO/SOLR"
         self.local_ingest = True
@@ -88,7 +88,7 @@ class SOLRMETNORepository(object):
         # self.config_obj = get_config()
         self.adc_collection_filter = get_collection_filter()
         # get the solr mapping for main queriebles
-        self.fields_dict = get_solr_mapping()
+        self.fields_dict = get_solr_mapping(repo_object.get("solr_mapping"))
         # print(self.adc_collection_filter)
 
         # generate core queryables db and obj bindings
@@ -145,8 +145,8 @@ class SOLRMETNORepository(object):
                 properties[i]["x-ogc-role"] = "id"
 
             try:
-                properties[i]["type"] = type_mappings[str(fields_dict[i])]
-                if fields_dict[i] == "pdate":
+                properties[i]["type"] = type_mappings[str(self.fields_dict[i])]
+                if self.fields_dict[i] == "pdate":
                     properties[i]["property"] = "date-time"
             except Exception as err:
                 # LOGGER.debug(f"Cannot determine type: {err}")

@@ -5,13 +5,12 @@ from pycsw.ogc.api.util import yaml_load
 import dateutil.parser as dparser
 import requests
 
-def get_solr_mapping():
+def get_solr_mapping(core_queriables):
     #with open("test.yaml") as stream:
     #    core_queriables_solr = yaml.safe_load(stream)
     
     # core_queriables = core_queriables_solr['solr_mapping']
-    core_queriables = get_config_parser("solr_mapping")
-
+    # csw_config = get_config()
     schema_url = f"http://157.249.78.203/solr/adc/schema/fields?"
     # Make the request and get JSON response
     response = requests.get(schema_url, headers={"Accept": "application/json"})
