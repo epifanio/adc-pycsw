@@ -65,7 +65,7 @@ from pycsw.plugins.repository.solr_helper import (
 # I should also remove parse_bbox_OR_query from solr_helper.py
 # and do the same for parse_field_OR_query
 
-class SOLRMETNORepository(object):
+class SOLRMETNORepository:
     """
     Class to interact with underlying METNO SOLR backend repository
     """
@@ -188,9 +188,6 @@ class SOLRMETNORepository(object):
         # print("query by ID \n")
         return results
 
-
-    def describe(self):
-        pass
 
     def query_collections(self, filters=None, limit=10):
         ''' Query for parent collections '''
