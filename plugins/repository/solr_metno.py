@@ -65,6 +65,11 @@ class SOLRMETNORepository:
         """
 
         self.filter = repo_object.get('filter')
+        #
+        self.xslt_iso_transformer = repo_object.get('xslt_iso_transformer')
+        self.xslt = repo_object.get('xslt')
+        self.mmd_to_iso_xslt = self.xslt[self.xslt_iso_transformer]
+        #
         self.context = context
         self.fts = False
         self.label = 'MetNO/SOLR'
@@ -484,9 +489,11 @@ class SOLRMETNORepository:
         if 'storage_information_file_format' in doc:
             record['format'] = doc['storage_information_file_format']
 
-        xslt_file = get_iso_transformer()
-
-        transform = etree.XSLT(etree.parse(xslt_file))
+        #xslt_file = get_iso_transformer()
+        #LOGGER.debug("xslt_file: %s", xslt_file)
+        #print(xslt_file)
+        #self.xslt[self.filter['xslt_iso_transformer']]
+        transform = etree.XSLT(etree.parse(self.mmd_to_iso_xslt))
         xml_ = base64.b64decode(doc['mmd_xml_file'])
 
         doc_ = etree.fromstring(xml_, self.context.parser)
