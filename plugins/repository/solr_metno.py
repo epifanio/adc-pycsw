@@ -1,11 +1,12 @@
-# -*- coding: iso-8859-15 -*-
 # =================================================================
 #
-# Authors: Tom Kralidis <tomkralidis@gmail.com>
-#          Massimo Di Stefano <massimods@met.no>
+# Authors: Massimo Di Stefano <massimods@met.no>
 #          Magnar Martinsen <magnarem@met.no>
+#          Tom Kralidis <tomkralidis@gmail.com>
 #
-# Copyright (c) 2022 Tom Kralidis
+# Copyright (c) 2025 Massimo Di Stefano
+# Copyright (c) 2025 Magnar Martinsen
+# Copyright (c) 2025 Tom Kralidis
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation
@@ -31,76 +32,61 @@
 # =================================================================
 
 import base64
-# import configparser
-from datetime import datetime, timezone
-import dateutil.parser as dparser
+from datetime import datetime
+import json
 import logging
 from urllib.parse import urlencode
 
-import requests
-
-from pycsw.core import util
+import dateutil.parser as dparser
 from pycsw.core.etree import etree
-import os
-
-from http.client import HTTPConnection  # py3
-
-import json
-from pycsw.plugins.repository.solr_query_handler import QueryHandler
-
-LOGGER = logging.getLogger(__name__)
-# HTTPConnection.debuglevel = 1
-
+from pygeofilter.backends.solr.evaluate import to_filter
+import requests
 from requests.auth import HTTPBasicAuth
 
+from pycsw.plugins.repository.solr_query_handler import QueryHandler
 from pycsw.plugins.repository.solr_helper import (
     get_collection_filter,
     get_iso_transformer,
     get_solr_connection,
-    get_solr_mapping,
+    get_solr_mapping
 )
 
-# I removed parse_bbox_OR_query by calling it internally via the OR flag in parse_bbox_query
-# and I should do the same for parse_field_OR_query
-# I should also remove parse_bbox_OR_query from solr_helper.py
-# and do the same for parse_field_OR_query
+LOGGER = logging.getLogger(__name__)
+
 
 class SOLRMETNORepository:
     """
     Class to interact with underlying METNO SOLR backend repository
     """
 
-    def __init__(self, repo_object, context):
+    def __init__(self, repo_object: dict, context):
         """
         Initialize repository
         """
-        # print('SOLRMETNORepository __init__')
+
         self.filter = repo_object.get('filter')
         self.context = context
         self.fts = False
-        self.label = "MetNO/SOLR"
+        self.label = 'MetNO/SOLR'
         self.local_ingest = True
-        self.solr_select_url = "%s/select" % self.filter
-        self.dbtype = "SOLR"
+        self.solr_select_url = f'{self.filter}/select'
+        self.dbtype = 'SOLR'
         self.username, self.password = get_solr_connection()
         self.authentication = HTTPBasicAuth(self.username, self.password)
         self.session = self
-        # self.config_obj = get_config()
         self.adc_collection_filter = get_collection_filter()
         # get the solr mapping for main queriebles
-        self.query_mappings = get_solr_mapping(repo_object.get("solr_mapping"))
-
-        # print(self.adc_collection_filter)
+        self.query_mappings = get_solr_mapping(repo_object.get('solr_mapping'))
 
         # generate core queryables db and obj bindings
         self.queryables = {}
-        
+
         self.query_handler = QueryHandler(self.adc_collection_filter)
 
-        for tname in self.context.model["typenames"]:
-            for qname in self.context.model["typenames"][tname]["queryables"]:
+        for tname in self.context.model['typenames']:
+            for qname in self.context.model['typenames'][tname]['queryables']:
                 self.queryables[qname] = {}
-                items = self.context.model["typenames"][tname]["queryables"][
+                items = self.context.model['typenames'][tname]['queryables'][
                     qname
                 ].items()
 
@@ -108,50 +94,49 @@ class SOLRMETNORepository:
                     self.queryables[qname][qkey] = qvalue
 
         # flatten all queryables
-        self.queryables["_all"] = {}
+        self.queryables['_all'] = {}
         for qbl in self.queryables:
-            self.queryables["_all"].update(self.queryables[qbl])
-        self.queryables["_all"].update(self.context.md_core_model["mappings"])
+            self.queryables['_all'].update(self.queryables[qbl])
+        self.queryables['_all'].update(self.context.md_core_model['mappings'])
 
         # self.dataset = type('dataset', (object,), {})
 
-    def describe(self):
+    def describe(self) -> dict:
         """Derive table columns and types"""
-        LOGGER.debug("Running Describe on : %s", self.query_mappings)
-        # type_mappings = {"TEXT": "string", "VARCHAR": "string"}
+
         type_mappings = {
-            "TEXT": "string",
-            "VARCHAR": "string",
-            "text_en": "string",
-            "text_general": "string",
-            "pdate": "string",
-            "bbox": "string",
-            "string": "string",
+            'TEXT': 'string',
+            'VARCHAR': 'string',
+            'text_en': 'string',
+            'text_general': 'string',
+            'pdate': 'string',
+            'bbox': 'string',
+            'string': 'string'
         }
 
         properties = {
-            "geometry": {
-                "$ref": "https://geojson.org/schema/Polygon.json",
-                "x-ogc-role": "primary-geometry",
+            'geometry': {
+                '$ref': 'https://geojson.org/schema/Polygon.json',
+                'x-ogc-role': 'primary-geometry',
             }
         }
 
         for i in self.query_mappings:
-            if i in ["anytext", "metadata", "metadata_type", "xml"]:
+            if i in ['anytext', 'metadata', 'metadata_type', 'xml']:
                 continue
 
-            properties[i] = {"title": i}
+            properties[i] = {'title': i}
 
-            if i == "identifier":
-                properties[i]["x-ogc-role"] = "id"
+            if i == 'identifier':
+                properties[i]['x-ogc-role'] = 'id'
 
             try:
-                properties[i]["type"] = type_mappings[str(self.query_mappings[i])]
-                if self.query_mappings[i] == "pdate":
-                    properties[i]["property"] = "date-time"
+                properties[i]['type'] = type_mappings[str(self.query_mappings[i])]  # noqa
+                if self.query_mappings[i] == 'pdate':
+                    properties[i]['property'] = 'date-time'
             except Exception as err:
-                # LOGGER.debug(f"Cannot determine type: {err}")
-                print(f"Cannot determine type: {err}")
+                msg = f'Cannot determine type: {err}'
+                LOGGER.warning(msg)
 
         return properties
 
@@ -159,323 +144,402 @@ class SOLRMETNORepository:
         """
         Stub to mock a pycsw dataset object for Transactions
         """
-        # print('dataset stub')
-        return type("dataset", (object,), record)
 
-    def query_ids(self, ids):
+        return type('dataset', (object,), record)
+
+    def query_ids(self, ids: list) -> list:
         """
         Query by list of identifiers
         """
 
         results = []
 
+        all_ids = '" OR "'.join(ids)
         params = {
-            "fq": ['isChildmetadata_identifier:("%s")' % '" OR "'.join(ids)],
-            "q.op": "OR",
-            "q": "*:*",
+            'fq': [
+                f'isChildmetadata_identifier:("{all_ids}")',
+                'metadata_status:Active'
+             ],
+            'q.op': 'OR',
+            'q': '*:*',
         }
-        params["fq"].append("metadata_status:%s" % "Active")
+
         if self.adc_collection_filter not in ['', None]:
-            params["fq"].append("collection:(%s)" % self.adc_collection_filter)
+            params['fq'].append(f'collection:({self.adc_collection_filter})')
 
-        print(params)
+        try:
+            response = requests.get(self.solr_select_url, params=params,
+                                    auth=self.authentication)
+            response.raise_for_status()
+            response = response.json()
+        except requests.exceptions.HTTPError as err:
+            msg = f'Solr query error: {err.response.text}'
+            LOGGER.error(msg)
+            raise RuntimeError(msg)
 
-        response = requests.get(self.solr_select_url, params=params, auth=self.authentication)
-
-        response = response.json()
-
-        for doc in response["response"]["docs"]:
+        for doc in response['response']['docs']:
             results.append(self._doc2record(doc))
-        # print("query by ID \n")
+
         return results
 
-
-    def query_collections(self, filters=None, limit=10):
+    def query_collections(self, filters=None, limit=10) -> list:
         ''' Query for parent collections '''
 
         results = []
 
         params = {
-            "fq": ['isChild:false'],
+            'fq': ['isChild:false']
         }
         if self.adc_collection_filter not in ['', None]:
-            params["fq"].append("collection:(%s)" % self.adc_collection_filter)
+            params['fq'].append(f'collection:({self.adc_collection_filter})')
 
-        print(params)
-        response = requests.get(self.solr_select_url, params=params)
-        print(response)
+        try:
+            response = requests.get(self.solr_select_url, params=params,
+                                    auth=self.authentication)
+            response.raise_for_status()
+            response = response.json()
+        except requests.exceptions.HTTPError as err:
+            msg = f'Solr query error: {err.response.text}'
+            LOGGER.error(msg)
+            raise RuntimeError(msg)
 
-        response = response.json()
-
-        for doc in response["response"]["docs"]:
+        for doc in response['response']['docs']:
             results.append(self._doc2record(doc))
-        # print("query by ID \n")
+
         return results
 
-    def query_domain(self, domain, typenames, domainquerytype="list", count=False):
+    def query_domain(self, domain, typenames, domainquerytype='list',
+                     count=False) -> list:
         """
         Query by property domain values
         """
-        # print('Query domain')
+
         results = []
 
         params = {
-            "q": "*:*",
-            "rows": 0,
-            "facet": "true",
-            "facet.query": "distinct",
-            "facet.type": "terms",
-            "facet.field": domain,
-            "fq": [],
+            'q': '*:*',
+            'rows': 0,
+            'facet': 'true',
+            'facet.query': 'distinct',
+            'facet.type': 'terms',
+            'facet.field': domain,
+            'fq': ['metadata_status:Active']
         }
-        params["fq"].append("metadata_status:%s" % "Active")
-        if self.adc_collection_filter != "" or self.adc_collection_filter != None:
-            params["fq"].append("collection:(%s)" % self.adc_collection_filter)
 
-        print(params)
+        if self.adc_collection_filter not in ['', None]:
+            params['fq'].append('collection:({self.adc_collection_filter})')
 
-        response = requests.get("%s/select" % self.filter, params=params, auth=self.authentication).json()
+        try:
+            response = requests.get(f'{self.filter}/select', params=params,
+                                    auth=self.authentication)
+            response.raise_for_status()
+            response = response.json()
+        except requests.exceptions.HTTPError as err:
+            msg = f'Solr query error: {err.response.text}'
+            LOGGER.error(msg)
+            raise RuntimeError(msg)
 
-        counts = response["facet_counts"]["facet_fields"][domain]
+        counts = response['facet_counts']['facet_fields'][domain]
 
         for term in zip(*([iter(counts)] * 2)):
-            LOGGER.debug("Term: %s", term)
+            LOGGER.debug(f'Term: {term}')
             results.append(term)
 
         return results
 
-    def query_insert(self, direction="max"):
+    def query_insert(self, direction='max') -> str:
         """
         Query to get latest (default) or earliest update to repository
         """
-        # print('query_insert')
-        if direction == "min":
-            sort_order = "asc"
+
+        if direction == 'min':
+            sort_order = 'asc'
         else:
-            sort_order = "desc"
+            sort_order = 'desc'
 
         params = {
-            "q": "*:*",
-            "q.op": "OR",
-            "fl": "timestamp",
-            "sort": "timestamp %s" % sort_order,
-            "fq": [],
+            'q': '*:*',
+            'q.op': 'OR',
+            'fl': 'timestamp',
+            'sort': f'timestamp {sort_order}',
+            'fq': ['metadata_status:Active'],
         }
-        params["fq"].append("metadata_status:%s" % "Active")
-        if self.adc_collection_filter != "" or self.adc_collection_filter != None:
-            params["fq"].append("collection:(%s)" % self.adc_collection_filter)
 
-        response = requests.get("%s/select" % self.filter, params=params, auth=self.authentication).json()
+        if self.adc_collection_filter not in ['', None]:
+            params['fq'].append('collection:({self.adc_collection_filter})')
 
-        # TODO
-        # check if any record available if none (length <= 0) add time.now
-        #
+        try:
+            response = requests.get(f'{self.filter}/query', params=params,
+                                    auth=self.authentication)
+            response.raise_for_status()
+            response = response.json()
+        except requests.exceptions.HTTPError as err:
+            msg = f'Solr query error: {err.response.text}'
+            LOGGER.error(msg)
+            raise RuntimeError(msg)
+
         try:
             timestamp = datetime.strptime(
-                response["response"]["docs"][0]["timestamp"], "%Y-%m-%dT%H:%M:%S.%fZ"
+                response['response']['docs'][0]['timestamp'],
+                '%Y-%m-%dT%H:%M:%S.%fZ'
             )
         except IndexError:
             timestamp = datetime.now()
 
-        return timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return timestamp.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     def query_source(self, source):
         """
         Query by source
         """
-        # print('Query_source')
+
         return NotImplementedError()
 
-    def query(
-        self, constraint, sortby=None, typenames=None, maxrecords=10, startposition=0
-    ):
+    def query(self, ast=None, sortby=None, typenames=None, maxrecords=10,
+              startposition=0) -> tuple:
         """
         Query records from underlying repository
         """
-        # DEBUG:
-        # if "_dict" in constraint:
-        #     print("constraint: ", constraint['_dict'])
-        print(" #####  get_iso_transformer #####", "\n", get_iso_transformer(), "\n", "#####  get_iso_transformer #####")
-        # mmd_to_NOiso
-        print(json.dumps(constraint, indent=2, default=str))
+
+        solr_query = {}
         results = []
 
-        # # print(('%s/select' % self.filter, params=params).json())
-        params = self.query_handler.query(constraint)
-        LOGGER.info("QUERY PARAMETERS: %s", params)
-        print(" easking for the following query params:", params)        
-        response = requests.get("%s/select" % self.filter, params=params, auth=self.authentication).json()
+        if ast is not None:
+            # ask pygeofilter to convert AST to SOLR query
+            solr_query = to_filter(ast)
+        else:
+            # DO NOT ask pygeofilter to convert AST to SOLR query
+            solr_query = {'query': '*:*'}
 
-        # print("######################  ---  ###################################\n")
-        # print('%s/select' % self.filter)
-        # print(params)
-        # print(response)
-        # print(len(response['response']['docs']))
-        # for i in response['response']['docs']:
-        #    print(i['metadata_identifier'])
-        # print("######################  ---  ###################################\n")
+        # add handle sortby, maxrecords, startposition
+        solr_query['offset'] = startposition
+        solr_query['limit'] = maxrecords
 
-        total = response["response"]["numFound"]
-        # response = response.json()
-        print("Found: %s" % total)
-        for doc in response["response"]["docs"]:
+        if sortby is not None:
+            solr_query['sort'] = f"{sortby['propertyname']} {sortby['order']}"
+
+        LOGGER.info(f'Solr query: {solr_query}')
+        try:
+            response = requests.post(f'{self.filter}/query', json=solr_query,
+                                     auth=self.authentication)
+            response.raise_for_status()
+            response = response.json()
+        except requests.exceptions.HTTPError as err:
+            msg = f'Solr query error: {err.response.text}'
+            LOGGER.error(msg)
+            raise RuntimeError(msg)
+
+        total = response['response']['numFound']
+        LOGGER.debug(f'Found: {total}')
+        for doc in response['response']['docs']:
             results.append(self._doc2record(doc))
-            # print(doc['metadata_identifier'])
-        # print(total)
 
-        return str(total), results
+        return total, results
 
-    def _doc2record(self, doc):
+    def _doc2record(self, doc: dict):
         """
         Transform a SOLR doc into a pycsw dataset object
         """
 
         record = {}
 
-        record["identifier"] = doc["metadata_identifier"]
-        record["typename"] = "gmd:MD_Metadata"
-        record["schema"] = "http://www.isotc211.org/2005/gmd"
-        # check for parent-child relationship
-        if 'isParent' in doc and doc["isParent"]:
-            record["type"] = "series"
+        record['identifier'] = doc['metadata_identifier']
+        record['metadata_type'] = 'application/xml'
+        record['typename'] = 'gmd:MD_Metadata'
+        record['schema'] = 'http://www.isotc211.org/2005/gmd'
+
+        LOGGER.debug('Checking for parent-child relationship')
+        if doc.get('isParent', False):
+            record['type'] = 'series'
         else:
-            record["type"] = "dataset"
-        #
-        if 'isChild' in doc and doc["isChild"]:
-            record["parentidentifier"] = doc["related_dataset"][0]    
-            # print(doc.keys())        
-        # record["type"] = "dataset"
-        record["wkt_geometry"] = doc["bbox"]
-        record["title"] = doc["title"][0]
-        record["abstract"] = doc["abstract"][0]
-        if "iso_topic_category" in doc:
-            record["topicategory"] = ",".join(doc["iso_topic_category"])
-        if "keywords_keyword" in doc:
-            record["keywords"] = ",".join(doc["keywords_keyword"])
-        # record['source'] = doc['related_url_landing_page'][0]
-        if "related_url_landing_page" in doc:
-            record["source"] = doc["related_url_landing_page"][0]
-        if "dataset_language" in doc:
-            record["language"] = doc["dataset_language"]
+            record['type'] = 'dataset'
+
+        if doc.get('isChild', False):
+            record['parentidentifier'] = doc['related_dataset'][0]
+
+        record['wkt_geometry'] = doc['bbox']
+        record['title'] = doc['title'][0]
+        record['abstract'] = doc['abstract'][0]
+
+        if 'iso_topic_category' in doc:
+            record['topicategory'] = ','.join(doc['iso_topic_category'])
+
+        if 'keywords_keyword' in doc:
+            record['keywords'] = ','.join(doc['keywords_keyword'])
+
+#        if 'related_url_landing_page' in doc:
+#            record['source'] = doc['related_url_landing_page'][0]
+
+        record['source'] = None
+
+        record['language'] = doc.get('dataset_language', 'en')
 
         # Transform the indexed time as insert_data
-        insert = dparser.parse(doc["timestamp"][0])
-        record["insert_date"] = insert.isoformat()
+        insert = dparser.parse(doc['timestamp'][0])
+        record['insert_date'] = insert.isoformat()
 
         # Transform the last metadata update datetime as modified
-        if "last_metadata_update_datetime" in doc:
-            modified = dparser.parse(doc["last_metadata_update_datetime"][0])
-            record["date_modified"] = modified.isoformat()
+        if 'last_metadata_update_datetime' in doc:
+            modified = dparser.parse(doc['last_metadata_update_datetime'][0])
+            record['date_modified'] = modified.isoformat()
+
+            if 'Created' in doc['last_metadata_update_type']:
+                record['date_creation'] = modified.isoformat()
+            else:
+                record['date_creation'] = None
 
         # Transform temporal extendt start and end dates
-        if "temporal_extent_start_date" in doc:
-            time_begin = dparser.parse(doc["temporal_extent_start_date"][0])
-            record["time_begin"] = time_begin.isoformat()
-        if "temporal_extent_end_date" in doc:
-            time_end = dparser.parse(doc["temporal_extent_end_date"][0])
-            record["time_end"] = time_end.isoformat()
+        if 'temporal_extent_start_date' in doc:
+            time_begin = dparser.parse(doc['temporal_extent_start_date'][0])
+            record['time_begin'] = time_begin.isoformat()
+
+        if 'temporal_extent_end_date' in doc:
+            time_end = dparser.parse(doc['temporal_extent_end_date'][0])
+            record['time_end'] = time_end.isoformat()
 
         links = []
-        if "data_access_url_opendap" in doc:
+        record['relation'] = None
+
+        if 'data_access_url_opendap' in doc:
             links.append(
                 {
-                    "name": "OPeNDAP access",
-                    "description": "OPeNDAP access",
-                    "protocol": "OPeNDAP:OPeNDAP",
-                    "url": doc["data_access_url_opendap"][0],
+                    'name': 'OPeNDAP access',
+                    'description': 'OPeNDAP access',
+                    'protocol': 'OPeNDAP:OPeNDAP',
+                    'url': doc['data_access_url_opendap'][0],
                 }
             )
-        if "data_access_url_ogc_wms" in doc:
+        if 'data_access_url_ogc_wms' in doc:
             links.append(
                 {
-                    "name": "OGC-WMS Web Map Service",
-                    "description": "OGC-WMS Web Map Service",
-                    "protocol": "OGC:WMS",
-                    "url": doc["data_access_url_ogc_wms"][0],
+                    'name': 'OGC-WMS Web Map Service',
+                    'description': 'OGC-WMS Web Map Service',
+                    'protocol': 'OGC:WMS',
+                    'url': doc['data_access_url_ogc_wms'][0],
                 }
             )
-        if "data_access_url_http" in doc:
+        if 'data_access_url_http' in doc:
             links.append(
                 {
-                    "name": "File for download",
-                    "description": "Direct HTTP download",
-                    "protocol": "WWW:DOWNLOAD-1.0-http--download",
-                    "url": doc["data_access_url_http"][0],
+                    'name': 'File for download',
+                    'description': 'Direct HTTP download',
+                    'protocol': 'WWW:DOWNLOAD-1.0-http--download',
+                    'url': doc['data_access_url_http'][0],
                 }
             )
-        if "data_access_url_ftp" in doc:
+        if 'data_access_url_ftp' in doc:
             links.append(
                 {
-                    "name": "File for download",
-                    "description": "Direct FTP download",
-                    "protocol": "ftp",
-                    "url": doc["data_access_url_ftp"][0],
+                    'name': 'File for download',
+                    'description': 'Direct FTP download',
+                    'protocol': 'ftp',
+                    'url': doc['data_access_url_ftp'][0],
                 }
             )
-        record["links"] = json.dumps(links)
+        record['links'] = json.dumps(links)
 
         # Transform the first investigator as creator.
-        if "personnel_investigator_name" in doc:
-            # record['creator'] = doc['personnel_investigator_name'][0] +" (" + doc['personnel_investigator_email'][0] + "), " + doc['personnel_investigator_organisation'][0]
-            record["creator"] = ",".join(
-                doc["personnel_investigator_name"]
-            )  # +" (" + doc['personnel_investigator_email'][0] + "), " + doc['personnel_investigator_organisation'][0]
+        if 'personnel_investigator_name' in doc:
+            record['creator'] = ','.join(doc['personnel_investigator_name'])
 
-        if "personnel_technical_name" in doc:
-            # for i in doc['personnel_technical_name']:
-            # record['contributor'] = doc['personnel_technical_name'][i]
-            record["contributor"] = ",".join(doc["personnel_technical_name"])
+        if 'personnel_technical_name' in doc:
+            record['contributor'] = ','.join(doc['personnel_technical_name'])
 
-        if "personnel_metadata_author_name" in doc:
-            if "contributor" in record:
-                record["contributor"] += "," + ",".join(
-                    doc["personnel_metadata_author_name"]
+        if 'personnel_metadata_author_name' in doc:
+            if 'contributor' in record:
+                record['contributor'] += ',' + ','.join(
+                    doc['personnel_metadata_author_name']
                 )
             else:
-                record["contributor"] = ",".join(doc["personnel_metadata_author_name"])
+                record['contributor'] = ','.join(doc['personnel_metadata_author_name'])  # noqa
 
-        # rights is mapped to accessconstraint, although we provide this info in the use constraint.
+        contacts = []
+        for ct in ['technical', 'investigator', 'metadata_author']:
+            ct2 = personnel2contact(doc, ct)
+            if ct2:
+                contacts.append(personnel2contact(doc, ct))
+
+        record['contacts'] = contacts
+        record['themes'] = keywords2themes(doc)
+
+        # TODO: rights is mapped to accessconstraint, although we provide this
+        # info in the use constraint.
         # we should use dc:license instead, but it is not mapped in csw.
-        if "use_constraint_license_text" in doc:
-            record["rights"] = doc["use_constraint_license_text"]
-            record["accessconstraints"] = doc["use_constraint_license_text"]
+        if 'use_constraint_license_text' in doc:
+            record['rights'] = doc['use_constraint_license_text']
+            record['accessconstraints'] = doc['use_constraint_license_text']
         if (
-            "use_constraint_identifier" in doc
-            and "use_constraint_license_text" not in doc
+            'use_constraint_identifier' in doc
+            and 'use_constraint_license_text' not in doc
         ):
-            record["rights"] = doc["use_constraint_identifier"]
-            record["accessconstraints"] = doc["use_constraint_identifier"]
+            record['rights'] = doc['use_constraint_identifier']
+            record['accessconstraints'] = doc['use_constraint_identifier']
 
-        if "dataset_citation_publisher" in doc:
-            record["publisher"] = doc["dataset_citation_publisher"][0]
+        record['otherconstraints'] = None
+        record['conditionapplyingtoaccessanduse'] = None
 
-        if "storage_information_file_format" in doc:
-            record["format"] = doc["storage_information_file_format"]
+        if 'dataset_citation_publisher' in doc:
+            record['publisher'] = doc['dataset_citation_publisher'][0]
 
-        # xslt = os.environ.get('MMD_TO_ISO')
+        if 'storage_information_file_format' in doc:
+            record['format'] = doc['storage_information_file_format']
+
         xslt_file = get_iso_transformer()
-        # xslt_file = get_config_parser("xslt", "mmd_to_iso")
 
         transform = etree.XSLT(etree.parse(xslt_file))
-        xml_ = base64.b64decode(doc["mmd_xml_file"])
-        # print("xml_: ", xml_)
+        xml_ = base64.b64decode(doc['mmd_xml_file'])
 
         doc_ = etree.fromstring(xml_, self.context.parser)
-        # print("doc_:", doc_)
         pl = '/usr/local/share/parent_list.xml'
-        result_tree = transform(doc_, path_to_parent_list=etree.XSLT.strparam(pl)).getroot()
+        result_tree = transform(
+            doc_, path_to_parent_list=etree.XSLT.strparam(pl)).getroot()
         # result_tree = transform(doc_).getroot()
-        record["xml"] = etree.tostring(result_tree)
-        record["mmd_xml_file"] = doc["mmd_xml_file"]
+        record['xml'] = etree.tostring(result_tree)
+        record['mmd_xml_file'] = doc['mmd_xml_file']
 
-        # print(record['xml'])
+        LOGGER.debug(record['xml'])
         params = {
-            #'fq': doc['metadata_identifier'],
-            "q.op": "OR",
-            "q": "metadata_identifier:(%s)" % doc["metadata_identifier"],
+            'q.op': 'OR',
+            'q': f"metadata_identifier:{doc['metadata_identifier']}"
         }
 
         mdsource_url = self.solr_select_url + urlencode(params)
-        record["mdsource"] = mdsource_url
+        record['mdsource'] = mdsource_url
 
         return self.dataset(record)
+
+
+def keywords2themes(doc: dict) -> list:
+    schemes = {}
+    themes = []
+
+    for scheme in set(doc['keywords_vocabulary']):
+        schemes[scheme] = []
+        for index, value in enumerate(doc['keywords_keyword']):
+            if doc['keywords_vocabulary'][index] == scheme:
+                schemes[doc['keywords_vocabulary'][index]].append(value)
+
+    for key, value in schemes.items():
+        themes.append({
+            'concepts': [{'id': v} for v in value],
+            'scheme': key
+        })
+
+    return themes
+
+
+def personnel2contact(doc: dict, ct: str) -> dict:
+    contact = {}
+
+    if f'personnel_{ct}_name' in doc:
+        contact = {
+            'name': doc[f'personnel_{ct}_name'][0],
+            'organization': doc[f'personnel_{ct}_organisation'][0],
+            'emails': [{
+                'role': 'main',
+                'value': doc[f'personnel_{ct}_email'][0]
+            }],
+            'roles': [doc[f'personnel_{ct}_role'][0]]
+        }
+
+    return contact
