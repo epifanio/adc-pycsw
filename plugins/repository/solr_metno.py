@@ -43,20 +43,12 @@ from pygeofilter.backends.solr.evaluate import to_filter
 import requests
 from requests.auth import HTTPBasicAuth
 
-from pycsw.plugins.repository.solr_query_handler import QueryHandler
-from pycsw.plugins.repository.solr_helper import (
-    get_collection_filter,
-    get_iso_transformer,
-    get_solr_connection,
-    get_solr_mapping
-)
-
 LOGGER = logging.getLogger(__name__)
 
 
-class SOLRMETNORepository:
+class SolrMETNORepository:
     """
-    Class to interact with underlying METNO SOLR backend repository
+    Class to interact with underlying METNO Solr backend repository
     """
 
     def __init__(self, repo_object: dict, context):
@@ -72,21 +64,20 @@ class SOLRMETNORepository:
         #
         self.context = context
         self.fts = False
-        self.label = 'MetNO/SOLR'
+        self.label = 'MetNO/Solr'
         self.local_ingest = True
         self.solr_select_url = f'{self.filter}/select'
-        self.dbtype = 'SOLR'
-        self.username, self.password = get_solr_connection()
+        self.dbtype = 'Solr'
+        self.username = repo_object.get('username')
+        self.password = repo_object.get('password')
         self.authentication = HTTPBasicAuth(self.username, self.password)
         self.session = self
-        self.adc_collection_filter = get_collection_filter()
-        # get the solr mapping for main queriebles
-        self.query_mappings = get_solr_mapping(repo_object.get('solr_mapping'))
+        self.adc_collection = repo_object.get('adc_collection')
+        # get the Solr mappings for main queryables
+        self.query_mappings = repo_object.get('solr_mappings')
 
         # generate core queryables db and obj bindings
         self.queryables = {}
-
-        self.query_handler = QueryHandler(self.adc_collection_filter)
 
         for tname in self.context.model['typenames']:
             for qname in self.context.model['typenames'][tname]['queryables']:
@@ -104,8 +95,6 @@ class SOLRMETNORepository:
             self.queryables['_all'].update(self.queryables[qbl])
         self.queryables['_all'].update(self.context.md_core_model['mappings'])
 
-        # self.dataset = type('dataset', (object,), {})
-
     def describe(self) -> dict:
         """Derive table columns and types"""
 
@@ -119,6 +108,16 @@ class SOLRMETNORepository:
             'string': 'string'
         }
 
+        try:
+            response = requests.get(f'{self.filter}/schema/fields',
+                                    auth=self.authentication)
+            response.raise_for_status()
+            response = response.json()
+        except requests.exceptions.HTTPError as err:
+            msg = f'Solr query error: {err.response.text}'
+            LOGGER.error(msg)
+            raise RuntimeError(msg)
+
         properties = {
             'geometry': {
                 '$ref': 'https://geojson.org/schema/Polygon.json',
@@ -126,22 +125,19 @@ class SOLRMETNORepository:
             }
         }
 
-        for i in self.query_mappings:
-            if i in ['anytext', 'metadata', 'metadata_type', 'xml']:
-                continue
+        for field in response.get('fields', []):
+            if field['name'] in self.query_mappings.values():
+                pname = dict((v,k) for k,v in self.query_mappings.items()).get(field['name'])
+                properties[pname] = {
+                    'title': pname
+                }
+                if field['type'] in type_mappings:
+                    properties[pname]['type'] = type_mappings[field['type']]
+                    if field['type'] == 'pdate':
+                        properties[pname]['fomat'] = 'date-time'
 
-            properties[i] = {'title': i}
-
-            if i == 'identifier':
-                properties[i]['x-ogc-role'] = 'id'
-
-            try:
-                properties[i]['type'] = type_mappings[str(self.query_mappings[i])]  # noqa
-                if self.query_mappings[i] == 'pdate':
-                    properties[i]['property'] = 'date-time'
-            except Exception as err:
-                msg = f'Cannot determine type: {err}'
-                LOGGER.warning(msg)
+                if pname == 'identifier':
+                    properties[pname]['x-ogc-role'] = 'id'
 
         return properties
 
@@ -162,15 +158,15 @@ class SOLRMETNORepository:
         all_ids = '" OR "'.join(ids)
         params = {
             'fq': [
-                f'isChildmetadata_identifier:("{all_ids}")',
+                f'metadata_identifier:("{all_ids}")',
                 'metadata_status:Active'
              ],
             'q.op': 'OR',
-            'q': '*:*',
+            'q': '*:*'
         }
 
-        if self.adc_collection_filter not in ['', None]:
-            params['fq'].append(f'collection:({self.adc_collection_filter})')
+        if self.adc_collection not in ['', None]:
+            params['fq'].append(f'collection:({self.adc_collection})')
 
         try:
             response = requests.get(self.solr_select_url, params=params,
@@ -195,8 +191,8 @@ class SOLRMETNORepository:
         params = {
             'fq': ['isChild:false']
         }
-        if self.adc_collection_filter not in ['', None]:
-            params['fq'].append(f'collection:({self.adc_collection_filter})')
+        if self.adc_collection not in ['', None]:
+            params['fq'].append(f'collection:({self.adc_collection})')
 
         try:
             response = requests.get(self.solr_select_url, params=params,
@@ -231,8 +227,8 @@ class SOLRMETNORepository:
             'fq': ['metadata_status:Active']
         }
 
-        if self.adc_collection_filter not in ['', None]:
-            params['fq'].append('collection:({self.adc_collection_filter})')
+        if self.adc_collection not in ['', None]:
+            params['fq'].append('collection:({self.adc_collection})')
 
         try:
             response = requests.get(f'{self.filter}/select', params=params,
@@ -270,8 +266,8 @@ class SOLRMETNORepository:
             'fq': ['metadata_status:Active'],
         }
 
-        if self.adc_collection_filter not in ['', None]:
-            params['fq'].append('collection:({self.adc_collection_filter})')
+        if self.adc_collection not in ['', None]:
+            params['fq'].append('collection:({self.adc_collection})')
 
         try:
             response = requests.get(f'{self.filter}/query', params=params,
@@ -310,10 +306,10 @@ class SOLRMETNORepository:
         results = []
 
         if ast is not None:
-            # ask pygeofilter to convert AST to SOLR query
+            # ask pygeofilter to convert AST to Solr query
             solr_query = to_filter(ast)
         else:
-            # DO NOT ask pygeofilter to convert AST to SOLR query
+            # DO NOT ask pygeofilter to convert AST to Solr query
             solr_query = {'query': '*:*'}
 
         # add handle sortby, maxrecords, startposition
@@ -343,7 +339,7 @@ class SOLRMETNORepository:
 
     def _doc2record(self, doc: dict):
         """
-        Transform a SOLR doc into a pycsw dataset object
+        Transform a Solr doc into a pycsw dataset object
         """
 
         record = {}
@@ -489,22 +485,17 @@ class SOLRMETNORepository:
         if 'storage_information_file_format' in doc:
             record['format'] = doc['storage_information_file_format']
 
-        #xslt_file = get_iso_transformer()
-        #LOGGER.debug("xslt_file: %s", xslt_file)
-        #print(xslt_file)
-        #self.xslt[self.filter['xslt_iso_transformer']]
-        transform = etree.XSLT(etree.parse(self.mmd_to_iso_xslt))
-        xml_ = base64.b64decode(doc['mmd_xml_file'])
-
-        doc_ = etree.fromstring(xml_, self.context.parser)
-        pl = '/usr/local/share/parent_list.xml'
-        result_tree = transform(
-            doc_, path_to_parent_list=etree.XSLT.strparam(pl)).getroot()
-        # result_tree = transform(doc_).getroot()
-        record['xml'] = etree.tostring(result_tree)
-        record['mmd_xml_file'] = doc['mmd_xml_file']
-
-        LOGGER.debug(record['xml'])
+#        transform = etree.XSLT(etree.parse(self.mmd_to_iso_xslt))
+#        xml_ = base64.b64decode(doc['mmd_xml_file'])
+#
+#        doc_ = etree.fromstring(xml_, self.context.parser)
+#        pl = '/usr/local/share/parent_list.xml'
+#        result_tree = transform(
+#            doc_, path_to_parent_list=etree.XSLT.strparam(pl)).getroot()
+#        record['xml'] = etree.tostring(result_tree)
+#        record['mmd_xml_file'] = doc['mmd_xml_file']
+#
+#        LOGGER.debug(record['xml'])
         params = {
             'q.op': 'OR',
             'q': f"metadata_identifier:{doc['metadata_identifier']}"
